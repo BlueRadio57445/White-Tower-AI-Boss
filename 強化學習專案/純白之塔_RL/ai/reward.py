@@ -17,8 +17,8 @@ class RewardCalculator:
     DEFAULT_REWARDS: Dict[EventType, float] = {
         EventType.TICK: -0.01,
         EventType.ENTITY_HIT_WALL: -2.0,
-        EventType.ITEM_COLLECTED: 12.0,
-        EventType.SKILL_CAST_COMPLETE: 25.0,
+        EventType.ITEM_COLLECTED: 25.0,
+        EventType.SKILL_CAST_COMPLETE: 12.0,
         EventType.SKILL_MISSED: 0.0,
         EventType.ENTITY_KILLED: 0.0,  # Already counted in SKILL_CAST_COMPLETE
     }

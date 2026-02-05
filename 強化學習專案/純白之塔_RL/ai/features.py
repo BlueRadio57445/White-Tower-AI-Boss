@@ -26,6 +26,43 @@ class FeatureExtractor:
         self.world_size = world_size
         self.n_features = 15
 
+    def _raycast_to_wall(self, pos: np.ndarray, cos_angle: float, sin_angle: float) -> float:
+        """
+        Calculate distance to wall in the facing direction using ray casting.
+
+        Args:
+            pos: Current position [x, y]
+            cos_angle: Cosine of facing angle
+            sin_angle: Sine of facing angle
+
+        Returns:
+            Distance to wall in facing direction
+        """
+        x, y = pos[0], pos[1]
+        distances = []
+
+        # Check horizontal walls (x boundaries)
+        if cos_angle > 1e-6:
+            # Moving right, will hit right wall (x = world_size)
+            t = (self.world_size - x) / cos_angle
+            distances.append(t)
+        elif cos_angle < -1e-6:
+            # Moving left, will hit left wall (x = 0)
+            t = -x / cos_angle
+            distances.append(t)
+
+        # Check vertical walls (y boundaries)
+        if sin_angle > 1e-6:
+            # Moving up, will hit top wall (y = world_size)
+            t = (self.world_size - y) / sin_angle
+            distances.append(t)
+        elif sin_angle < -1e-6:
+            # Moving down, will hit bottom wall (y = 0)
+            t = -y / sin_angle
+            distances.append(t)
+
+        return min(distances) if distances else self.world_size
+
     def extract(self, world: GameWorld) -> np.ndarray:
         """
         Extract features from the current world state.
@@ -81,17 +118,14 @@ class FeatureExtractor:
             abs(relative_angle_monster) < 0.5 and dist_to_monster < 0.6
         ) else 0.0
 
-        # Distance to nearest wall (normalized)
-        dist_to_wall = min(
-            player_pos[0],
-            player_pos[1],
-            self.world_size - player_pos[0],
-            self.world_size - player_pos[1]
-        ) / self.world_size
-
         # Player facing direction
         cos_angle = np.cos(player_angle)
         sin_angle = np.sin(player_angle)
+
+        # Distance to wall in facing direction (ray cast)
+        dist_to_wall = self._raycast_to_wall(
+            player_pos, cos_angle, sin_angle
+        ) / self.world_size
 
         # Casting state
         casting_progress = world.get_casting_progress()
@@ -169,14 +203,12 @@ class FeatureExtractor:
             abs(relative_angle_monster) < 0.5 and dist_to_monster < 0.6
         ) else 0.0
 
-        dist_to_wall = min(
-            agent_pos[0], agent_pos[1],
-            self.world_size - agent_pos[0],
-            self.world_size - agent_pos[1]
-        ) / self.world_size
-
         cos_angle = np.cos(agent_angle)
         sin_angle = np.sin(agent_angle)
+
+        dist_to_wall = self._raycast_to_wall(
+            agent_pos, cos_angle, sin_angle
+        ) / self.world_size
 
         casting_progress = wind_up / 4.0
         is_ready_to_cast = 1.0 if wind_up == 0 else 0.0
