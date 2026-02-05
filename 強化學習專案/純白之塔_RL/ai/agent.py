@@ -25,9 +25,8 @@ class HybridPPOAgent:
         lmbda: float = 0.95,
         epsilon: float = 0.2,
         sigma_init: float = 0.6,
-        sigma_min: float = 0.1,
-        sigma_max: float = 1.0,
-        learnable_sigma: bool = True
+        sigma_min: float = 0.15,
+        sigma_decay: float = 0.9998
     ):
         """
         Initialize the PPO agent.
@@ -39,9 +38,8 @@ class HybridPPOAgent:
             lmbda: GAE lambda parameter
             epsilon: PPO clipping parameter
             sigma_init: Initial exploration standard deviation
-            sigma_min: Minimum sigma (for stability)
-            sigma_max: Maximum sigma (for stability)
-            learnable_sigma: If True, sigma is learned via policy gradient
+            sigma_min: Minimum exploration standard deviation
+            sigma_decay: Exploration decay rate per update
         """
         self.n_features = n_features
         self.n_discrete_actions = n_discrete_actions
@@ -49,11 +47,10 @@ class HybridPPOAgent:
         self.lmbda = lmbda
         self.epsilon = epsilon
 
-        # Sigma parameters
+        # Exploration parameters
         self.sigma = sigma_init
         self.sigma_min = sigma_min
-        self.sigma_max = sigma_max
-        self.learnable_sigma = learnable_sigma
+        self.sigma_decay = sigma_decay
 
         # Initialize weights with small random values
         self.w_actor_discrete = np.random.randn(n_discrete_actions, n_features) * 0.01
@@ -130,8 +127,7 @@ class HybridPPOAgent:
         self,
         lr_actor_discrete: float = 0.003,
         lr_actor_continuous: float = 0.002,
-        lr_critic: float = 0.007,
-        lr_sigma: float = 0.001
+        lr_critic: float = 0.007
     ) -> None:
         """
         Update agent weights using PPO with GAE.
@@ -140,7 +136,6 @@ class HybridPPOAgent:
             lr_actor_discrete: Learning rate for discrete actor
             lr_actor_continuous: Learning rate for continuous actor
             lr_critic: Learning rate for critic
-            lr_sigma: Learning rate for sigma (if learnable)
         """
         if not self.buffer:
             return
@@ -152,9 +147,6 @@ class HybridPPOAgent:
         # Compute GAE advantages
         advantages = self._compute_gae(rewards, values)
         returns = advantages + np.array(values)
-
-        # Accumulate sigma gradient over batch
-        sigma_grad_accum = 0.0
 
         # Update weights for each transition
         for i in range(len(self.buffer)):
@@ -172,45 +164,14 @@ class HybridPPOAgent:
             # Update discrete actor
             self._update_actor_discrete(state, a_d, old_prob_d, adv, lr_actor_discrete)
 
-            # Update continuous actor (mu)
+            # Update continuous actor
             self._update_actor_continuous(state, a_c, old_mu, adv, lr_actor_continuous)
 
-            # Accumulate sigma gradient
-            if self.learnable_sigma:
-                new_mu = np.dot(self.w_actor_continuous_mu, state)
-                sigma_grad_accum += self._compute_sigma_gradient(a_c, new_mu, adv)
-
-        # Update sigma using accumulated gradient
-        if self.learnable_sigma:
-            avg_sigma_grad = sigma_grad_accum / len(self.buffer)
-            avg_sigma_grad = np.clip(avg_sigma_grad, -1.0, 1.0)  # Clip for stability
-            self.sigma += lr_sigma * avg_sigma_grad
-            self.sigma = np.clip(self.sigma, self.sigma_min, self.sigma_max)
+        # Decay exploration
+        self.sigma = max(self.sigma * self.sigma_decay, self.sigma_min)
 
         # Clear buffer
         self.buffer = []
-
-    def _compute_sigma_gradient(self, action: float, mu: float, advantage: float) -> float:
-        """
-        Compute policy gradient for sigma.
-
-        Based on: d(log π)/d(σ) = ((a - μ)² - σ²) / σ³
-
-        Args:
-            action: The continuous action taken
-            mu: Mean of the distribution
-            advantage: The advantage estimate
-
-        Returns:
-            Gradient contribution for sigma
-        """
-        diff_sq = (action - mu) ** 2
-        sigma_sq = self.sigma ** 2
-        sigma_cubed = self.sigma ** 3
-
-        # Gradient: advantage * d(log π)/d(σ)
-        grad = advantage * (diff_sq - sigma_sq) / (sigma_cubed + 1e-8)
-        return grad
 
     def _compute_gae(self, rewards: tuple, values: tuple) -> np.ndarray:
         """Compute Generalized Advantage Estimation."""

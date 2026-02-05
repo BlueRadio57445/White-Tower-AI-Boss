@@ -33,15 +33,13 @@ class TrainingConfig:
     lmbda: float = 0.95
     epsilon: float = 0.2
     sigma_init: float = 0.6
-    sigma_min: float = 0.1
-    sigma_max: float = 1.0
-    learnable_sigma: bool = True  # Learn sigma via policy gradient
+    sigma_min: float = 0.15
+    sigma_decay: float = 0.9998
 
     # Learning rates
     lr_actor_discrete: float = 0.003
     lr_actor_continuous: float = 0.002
     lr_critic: float = 0.007
-    lr_sigma: float = 0.001  # Learning rate for sigma
 
     # Export settings
     export_weights: bool = True
@@ -83,8 +81,7 @@ class Trainer:
             epsilon=self.config.epsilon,
             sigma_init=self.config.sigma_init,
             sigma_min=self.config.sigma_min,
-            sigma_max=self.config.sigma_max,
-            learnable_sigma=self.config.learnable_sigma
+            sigma_decay=self.config.sigma_decay
         )
         self.feature_extractor = FeatureExtractor(self.config.world_size)
         self.reward_calculator = RewardCalculator(self.world.event_bus)
@@ -183,8 +180,7 @@ class Trainer:
         self.agent.update(
             lr_actor_discrete=self.config.lr_actor_discrete,
             lr_actor_continuous=self.config.lr_actor_continuous,
-            lr_critic=self.config.lr_critic,
-            lr_sigma=self.config.lr_sigma
+            lr_critic=self.config.lr_critic
         )
 
         return total_reward
