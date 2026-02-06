@@ -11,6 +11,7 @@ from game.entity import Entity, EntityFactory
 from game.physics import PhysicsSystem
 from game.skills import SkillExecutor, SkillRegistry
 from game.projectile import ProjectileManager, ProjectileType
+from game.player import Player, PlayerConfig, DEFAULT_PLAYER_CONFIG
 from game.behaviors import (
     BehaviorRegistry,
     MonsterActionExecutor,
@@ -73,9 +74,12 @@ class GameWorld:
 
         # Entity tracking
         self.entities: List[Entity] = []
-        self.player: Optional[Entity] = None
+        self.player: Optional[Player] = None
         self.monsters: List[Entity] = []
         self.items: List[Entity] = []
+
+        # Player configuration (can be customized before reset)
+        self.player_config: PlayerConfig = DEFAULT_PLAYER_CONFIG
 
         # World state
         self.tick_count: int = 0
@@ -92,8 +96,9 @@ class GameWorld:
 
         # Create player
         px, py = self.room.spawn_points.get('player', (1.0, 1.0))
-        self.player = EntityFactory.create_player(px, py)
-        self.entities.append(self.player)
+        self.player = Player(self.player_config)
+        player_entity = self.player.spawn(px, py)
+        self.entities.append(player_entity)
 
         # Create monsters (4 monsters with different behaviors)
         monster_spawns = self.room.spawn_points.get(
@@ -141,11 +146,11 @@ class GameWorld:
 
         # Process skill casting for player
         if self.player and self.player.has_skills() and self.player.skills.is_casting:
-            self.skill_executor.tick(self.player, self.monsters)
+            self.skill_executor.tick(self.player.entity, self.monsters)
 
         # Check item pickups
         if self.player:
-            collected = self.physics.check_pickups(self.player, self.items)
+            collected = self.physics.check_pickups(self.player.entity, self.items)
             for item in collected:
                 self._respawn_item(item)
 
@@ -224,7 +229,7 @@ class GameWorld:
                 self.event_bus.publish(GameEvent(
                     EventType.DAMAGE_TAKEN,
                     source_entity=monster,
-                    target_entity=self.player,
+                    target_entity=self.player.entity,
                     data={"damage": damage}
                 ))
 
@@ -234,7 +239,7 @@ class GameWorld:
                     self.event_bus.publish(GameEvent(
                         EventType.AGENT_DIED,
                         source_entity=monster,
-                        target_entity=self.player
+                        target_entity=self.player.entity
                     ))
 
     def _respawn_item(self, item: Entity) -> None:
@@ -262,7 +267,7 @@ class GameWorld:
         if not self.player or not self.player.is_alive:
             return
 
-        hits = self.projectile_manager.update(self.player)
+        hits = self.projectile_manager.update(self.player.entity)
 
         for hit_info in hits:
             damage = hit_info["damage"]
@@ -273,7 +278,7 @@ class GameWorld:
                 self.event_bus.publish(GameEvent(
                     EventType.DAMAGE_TAKEN,
                     source_entity=None,  # Projectile source
-                    target_entity=self.player,
+                    target_entity=self.player.entity,
                     data={"damage": damage, "source": "projectile"}
                 ))
 
@@ -282,7 +287,7 @@ class GameWorld:
                     self.player.despawn()
                     self.event_bus.publish(GameEvent(
                         EventType.AGENT_DIED,
-                        target_entity=self.player,
+                        target_entity=self.player.entity,
                         data={"source": "projectile"}
                     ))
 
@@ -300,29 +305,12 @@ class GameWorld:
         if self.player is None:
             return ""
 
-        event = ""
-
-        if action_discrete == 0:  # Move forward
-            success = self.physics.move_forward(self.player, speed=0.6)
-            if not success:
-                event = "HIT WALL!"
-
-        elif action_discrete == 1:  # Rotate left
-            self.physics.rotate_entity(self.player, 0.4)
-
-        elif action_discrete == 2:  # Rotate right
-            self.physics.rotate_entity(self.player, -0.4)
-
-        elif action_discrete == 3:  # Cast skill
-            if self.player.skills.is_ready:
-                self.skill_executor.start_cast(
-                    self.player,
-                    "basic_attack",
-                    aim_offset=action_continuous
-                )
-                event = "CASTING..."
-
-        return event
+        return self.player.execute_action(
+            action_discrete,
+            action_continuous,
+            self.physics,
+            self.skill_executor
+        )
 
     def get_player_position(self) -> np.ndarray:
         """Get player position as numpy array."""
@@ -361,6 +349,24 @@ class GameWorld:
         """Get player's current casting progress (0-1)."""
         if self.player and self.player.has_skills():
             return self.player.skills.wind_up_remaining / 4.0
+        return 0.0
+
+    def get_player_health_percentage(self) -> float:
+        """Get player health as percentage (0-1)."""
+        if self.player:
+            return self.player.health_percentage
+        return 0.0
+
+    def get_player_current_health(self) -> float:
+        """Get player current health."""
+        if self.player:
+            return self.player.current_health
+        return 0.0
+
+    def get_player_max_health(self) -> float:
+        """Get player max health."""
+        if self.player:
+            return self.player.max_health
         return 0.0
 
     def is_player_ready_to_cast(self) -> bool:

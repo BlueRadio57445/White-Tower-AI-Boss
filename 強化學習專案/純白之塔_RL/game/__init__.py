@@ -4,6 +4,7 @@ from game.components import Position, Health, Skills, Tags
 from game.entity import Entity, EntityFactory
 from game.physics import PhysicsSystem
 from game.skills import SkillDefinition, SkillExecutor, SkillRegistry
+from game.player import Player, PlayerConfig, SkillConfig, DEFAULT_PLAYER_CONFIG
 from game.world import Room, GameWorld
 
 __all__ = [
@@ -17,6 +18,10 @@ __all__ = [
     'SkillDefinition',
     'SkillExecutor',
     'SkillRegistry',
+    'Player',
+    'PlayerConfig',
+    'SkillConfig',
+    'DEFAULT_PLAYER_CONFIG',
     'Room',
     'GameWorld',
 ]

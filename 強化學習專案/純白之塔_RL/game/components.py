@@ -104,10 +104,18 @@ class Skills:
         wind_up_remaining: Ticks remaining in current wind-up (0 = ready)
         aim_angle: Aimed direction for current skill
         current_skill: ID of skill being cast (if any)
+        current_skill_range: Range of current skill
+        current_skill_angle_tolerance: Angle tolerance of current skill
+        current_skill_damage: Damage of current skill
     """
     wind_up_remaining: int = 0
     aim_angle: float = 0.0
     current_skill: Optional[str] = None
+
+    # Skill parameters (set when casting starts)
+    current_skill_range: float = 6.0
+    current_skill_angle_tolerance: float = 0.4
+    current_skill_damage: float = 100.0
 
     @property
     def is_casting(self) -> bool:
@@ -119,11 +127,22 @@ class Skills:
         """Check if ready to cast a new skill."""
         return self.wind_up_remaining == 0
 
-    def start_cast(self, skill_id: str, wind_up_ticks: int, aim_angle: float) -> None:
+    def start_cast(
+        self,
+        skill_id: str,
+        wind_up_ticks: int,
+        aim_angle: float,
+        skill_range: float = 6.0,
+        angle_tolerance: float = 0.4,
+        damage: float = 100.0
+    ) -> None:
         """Begin casting a skill."""
         self.wind_up_remaining = wind_up_ticks
         self.aim_angle = aim_angle
         self.current_skill = skill_id
+        self.current_skill_range = skill_range
+        self.current_skill_angle_tolerance = angle_tolerance
+        self.current_skill_damage = damage
 
     def tick(self) -> bool:
         """

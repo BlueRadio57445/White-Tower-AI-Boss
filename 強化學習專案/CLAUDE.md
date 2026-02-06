@@ -34,9 +34,9 @@ python main.py --export my_weights.json
 ```
 GameWorld.tick() → EventBus → RewardCalculator → reward
      ↓
-FeatureExtractor.extract() → 26-dim observation → HybridPPOAgent → (discrete_action, continuous_action)
+FeatureExtractor.extract() → 27-dim observation → HybridPPOAgent → (discrete_action, continuous_action)
      ↓
-GameWorld.execute_action() → PhysicsSystem / SkillExecutor
+GameWorld.execute_action() → Player.execute_action() → PhysicsSystem / SkillExecutor
 ```
 
 ### Module Responsibilities
@@ -45,6 +45,7 @@ GameWorld.execute_action() → PhysicsSystem / SkillExecutor
 |--------|---------|
 | `core/` | Event system (`EventBus`) and math utilities (`squared_prob`, `gaussian_log_prob`) |
 | `game/` | Game simulation: `Entity`/`Components`, `GameWorld`, `PhysicsSystem`, `SkillExecutor` |
+| `game/player.py` | Player configuration and action execution: `Player`, `PlayerConfig`, `SkillConfig` |
 | `game/behaviors/` | Monster behaviors: `stationary`, `berserker`, `hit_and_run`, `orbit_melee`, `orbit_ranged` |
 | `ai/` | Agent logic: `HybridPPOAgent`, `FeatureExtractor`, `RewardCalculator`, `WeightExporter` |
 | `training/` | Training loop: `Trainer`, `TrainingConfig` |
@@ -55,7 +56,7 @@ GameWorld.execute_action() → PhysicsSystem / SkillExecutor
 - **Discrete (4 actions)**: MOVE_FORWARD, ROTATE_LEFT, ROTATE_RIGHT, CAST_SKILL
 - **Continuous (1 value)**: Aim offset during casting (±0.5 radians from facing direction)
 
-### Observation Features (26 dimensions)
+### Observation Features (27 dimensions)
 
 Monsters are sorted by distance (nearest first). Dead monsters have features set to 0.
 
@@ -71,7 +72,8 @@ Monsters are sorted by distance (nearest first). Dead monsters have features set
 [22]    Distance to wall (facing direction)
 [23]    Casting progress (0-1)
 [24]    Ready to cast indicator
-[25]    Bias term (always 1.0)
+[25]    Player health (0-1)
+[26]    Bias term (always 1.0)
 ```
 
 ### Monster Behavior System
@@ -107,6 +109,43 @@ archer = EntityFactory.create_monster(
     movement_behavior=OrbitRangedBehavior(weapon_type="bow")
 )
 ```
+
+### Player System
+
+Player configuration is centralized in `game/player.py`, separating player attributes from game world logic.
+
+**Architecture**: `Agent (AI) → Player (config) → World (physics)`
+
+**Key Classes**:
+- `PlayerConfig`: Movement speed, turn speed, max health, skill configurations
+- `SkillConfig`: Per-skill parameters (wind_up, range, angle_tolerance, damage)
+- `Player`: Wraps Entity, provides `execute_action()` method
+
+**Usage**:
+```python
+from game.player import Player, PlayerConfig, SkillConfig
+
+config = PlayerConfig(
+    move_speed=0.6,
+    turn_speed=0.4,
+    max_health=100.0,
+    skills={
+        "basic_attack": SkillConfig(
+            skill_id="basic_attack",
+            wind_up_ticks=4,
+            range=6.0,
+            angle_tolerance=0.4,
+            damage=100.0
+        )
+    }
+)
+
+# GameWorld uses Player internally
+world.player_config = config
+world.reset()
+```
+
+**Property Delegation**: `player.position`, `player.health`, `player.skills` delegate to `player.entity.*` for backward compatibility.
 
 ### Skill System
 

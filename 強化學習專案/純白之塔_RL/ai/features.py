@@ -14,7 +14,7 @@ class FeatureExtractor:
     Extracts observation features from the game world.
     Produces a fixed-size feature vector for the agent.
 
-    Feature layout (26 dimensions):
+    Feature layout (27 dimensions):
     [0-3]   Nearest monster: dx, dy, dist, relative_angle
     [4-7]   2nd nearest monster: dx, dy, dist, relative_angle
     [8-11]  3rd nearest monster: dx, dy, dist, relative_angle
@@ -26,7 +26,8 @@ class FeatureExtractor:
     [22]    Distance to wall (facing direction)
     [23]    Casting progress
     [24]    Ready to cast indicator
-    [25]    Bias term
+    [25]    Player health (0-1)
+    [26]    Bias term
 
     Dead monsters have all features set to 0.
     """
@@ -42,7 +43,7 @@ class FeatureExtractor:
             world_size: Size of the game world for normalization
         """
         self.world_size = world_size
-        self.n_features = 26
+        self.n_features = 27
 
     def _raycast_to_wall(self, pos: np.ndarray, cos_angle: float, sin_angle: float) -> float:
         """
@@ -165,6 +166,9 @@ class FeatureExtractor:
         casting_progress = world.get_casting_progress()
         is_ready_to_cast = 1.0 if world.is_player_ready_to_cast() else 0.0
 
+        # Player health
+        player_health = world.get_player_health_percentage()
+
         # Combine all features
         return np.concatenate([
             monster_features,                    # 0-15: Monster features (4 monsters * 4 features)
@@ -175,7 +179,8 @@ class FeatureExtractor:
             [dist_to_wall],                      # 22: Wall distance (facing)
             [casting_progress],                  # 23: Current cast progress
             [is_ready_to_cast],                  # 24: Ready to cast indicator
-            [1.0]                                # 25: Bias term
+            [player_health],                     # 25: Player health (0-1)
+            [1.0]                                # 26: Bias term
         ])
 
     def extract_from_raw(
@@ -184,7 +189,8 @@ class FeatureExtractor:
         agent_angle: float,
         monster_positions: List[np.ndarray],
         blood_pos: np.ndarray,
-        wind_up: int
+        wind_up: int,
+        player_health: float = 1.0
     ) -> np.ndarray:
         """
         Extract features from raw position data.
@@ -196,6 +202,7 @@ class FeatureExtractor:
             monster_positions: List of monster positions (alive only)
             blood_pos: Blood pack position [x, y]
             wind_up: Current wind-up ticks remaining
+            player_health: Player health percentage (0-1)
 
         Returns:
             Feature vector
@@ -236,5 +243,6 @@ class FeatureExtractor:
             [dist_to_wall],
             [casting_progress],
             [is_ready_to_cast],
+            [player_health],
             [1.0]
         ])

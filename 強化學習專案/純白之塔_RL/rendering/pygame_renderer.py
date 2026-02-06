@@ -190,7 +190,7 @@ class PygameRenderer:
 
     def draw_player(self, world) -> None:
         """
-        Draw the player entity.
+        Draw the player entity with health bar.
 
         Args:
             world: GameWorld instance
@@ -201,6 +201,35 @@ class PygameRenderer:
 
         self.draw_entity_with_direction(
             screen_pos, angle, COLORS['player'], size=18
+        )
+
+        # Draw health bar above player
+        health_pct = world.get_player_health_percentage()
+        bar_width = 40
+        bar_height = 5
+        bar_x = screen_pos[0] - bar_width // 2
+        bar_y = screen_pos[1] - 30
+
+        # Background
+        pygame.draw.rect(
+            self.screen, (60, 60, 60),
+            (bar_x, bar_y, bar_width, bar_height)
+        )
+        # Health fill (green -> yellow -> red based on health)
+        if health_pct > 0.5:
+            health_color = (100, 255, 100)  # Green
+        elif health_pct > 0.25:
+            health_color = (255, 255, 100)  # Yellow
+        else:
+            health_color = (255, 100, 100)  # Red
+        pygame.draw.rect(
+            self.screen, health_color,
+            (bar_x, bar_y, int(bar_width * health_pct), bar_height)
+        )
+        # Border
+        pygame.draw.rect(
+            self.screen, COLORS['player'],
+            (bar_x, bar_y, bar_width, bar_height), 1
         )
 
     def draw_monster(self, world) -> None:

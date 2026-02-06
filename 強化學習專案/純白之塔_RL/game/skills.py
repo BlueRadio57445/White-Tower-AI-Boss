@@ -2,12 +2,15 @@
 Skill system - defines skills, handles casting, wind-up, and damage calculation.
 """
 
-from typing import Dict, List, Optional, Callable, Any
+from typing import Dict, List, Optional, Callable, Any, Union, TYPE_CHECKING
 from dataclasses import dataclass, field
 import numpy as np
 
 from core.events import EventBus, GameEvent, EventType
 from game.entity import Entity
+
+if TYPE_CHECKING:
+    from game.player import SkillConfig
 
 
 @dataclass
@@ -96,14 +99,18 @@ class SkillExecutor:
         self.event_bus = event_bus
         self.skill_registry = skill_registry
 
-    def start_cast(self, caster: Entity, skill_id: str,
-                   aim_offset: float = 0.0) -> bool:
+    def start_cast(
+        self,
+        caster: Entity,
+        skill: Union[str, 'SkillConfig'],
+        aim_offset: float = 0.0
+    ) -> bool:
         """
         Begin casting a skill.
 
         Args:
             caster: The entity casting the skill
-            skill_id: ID of the skill to cast
+            skill: Either a skill_id string (legacy) or a SkillConfig object
             aim_offset: Offset from current facing direction
 
         Returns:
@@ -115,12 +122,32 @@ class SkillExecutor:
         if caster.skills.is_casting:
             return False
 
-        skill = self.skill_registry.get(skill_id)
-        if skill is None:
-            return False
+        # Handle both legacy skill_id and new SkillConfig
+        if isinstance(skill, str):
+            # Legacy: lookup in registry
+            skill_def = self.skill_registry.get(skill)
+            if skill_def is None:
+                return False
+            skill_id = skill
+            wind_up_ticks = skill_def.wind_up_ticks
+            skill_range = skill_def.range
+            angle_tolerance = skill_def.angle_tolerance
+            damage = skill_def.damage
+        else:
+            # New: use SkillConfig directly
+            skill_id = skill.skill_id
+            wind_up_ticks = skill.wind_up_ticks
+            skill_range = skill.range
+            angle_tolerance = skill.angle_tolerance
+            damage = skill.damage
 
         aim_angle = caster.position.angle + np.clip(aim_offset, -0.5, 0.5)
-        caster.skills.start_cast(skill_id, skill.wind_up_ticks, aim_angle)
+        caster.skills.start_cast(
+            skill_id, wind_up_ticks, aim_angle,
+            skill_range=skill_range,
+            angle_tolerance=angle_tolerance,
+            damage=damage
+        )
 
         self.event_bus.publish(GameEvent(
             EventType.SKILL_CAST_START,
@@ -128,7 +155,7 @@ class SkillExecutor:
             data={
                 'skill_id': skill_id,
                 'aim_angle': aim_angle,
-                'wind_up_ticks': skill.wind_up_ticks
+                'wind_up_ticks': wind_up_ticks
             }
         ))
 
@@ -148,19 +175,19 @@ class SkillExecutor:
         if not caster.has_skills():
             return None
 
+        # Read skill parameters BEFORE tick() clears them
+        skill_id = caster.skills.current_skill or "basic_attack"
+        skill_range = caster.skills.current_skill_range
+        angle_tolerance = caster.skills.current_skill_angle_tolerance
+        damage = caster.skills.current_skill_damage
+
         completed = caster.skills.tick()
 
         if not completed:
             return None
 
-        skill_id = caster.skills.current_skill or "basic_attack"
-        skill = self.skill_registry.get(skill_id)
-
-        if skill is None:
-            return None
-
-        # Find hit targets
-        hit_target = self._check_hit(caster, targets, skill)
+        # Find hit targets using stored parameters
+        hit_target = self._check_hit(caster, targets, skill_range, angle_tolerance)
 
         if hit_target is not None:
             event = GameEvent(
@@ -169,13 +196,13 @@ class SkillExecutor:
                 target_entity=hit_target,
                 data={
                     'skill_id': skill_id,
-                    'damage': skill.damage
+                    'damage': damage
                 }
             )
 
             # Apply damage if target has health
             if hit_target.has_health():
-                hit_target.health.damage(skill.damage)
+                hit_target.health.damage(damage)
 
                 if not hit_target.health.is_alive:
                     hit_target.despawn()
@@ -197,15 +224,21 @@ class SkillExecutor:
             self.event_bus.publish(event)
             return event
 
-    def _check_hit(self, caster: Entity, targets: List[Entity],
-                   skill: SkillDefinition) -> Optional[Entity]:
+    def _check_hit(
+        self,
+        caster: Entity,
+        targets: List[Entity],
+        skill_range: float,
+        angle_tolerance: float
+    ) -> Optional[Entity]:
         """
         Check if skill hits any target.
 
         Args:
             caster: The casting entity
             targets: Potential targets
-            skill: The skill being used
+            skill_range: Maximum range of the skill
+            angle_tolerance: Angular accuracy tolerance
 
         Returns:
             The hit target or None
@@ -227,7 +260,7 @@ class SkillExecutor:
             vec = target_pos - caster_pos
             distance = np.linalg.norm(vec)
 
-            if distance > skill.range:
+            if distance > skill_range:
                 continue
 
             angle_to_target = np.arctan2(vec[1], vec[0])
@@ -236,7 +269,7 @@ class SkillExecutor:
                 np.cos(angle_to_target - aim_angle)
             )
 
-            if abs(angle_diff) < skill.angle_tolerance:
+            if abs(angle_diff) < angle_tolerance:
                 return target
 
         return None
