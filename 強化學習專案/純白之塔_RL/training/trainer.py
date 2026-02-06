@@ -27,7 +27,7 @@ class TrainingConfig:
     use_pygame: bool = True  # Use Pygame renderer (False for ASCII)
 
     # Agent hyperparameters
-    n_features: int = 15
+    n_features: int = 26
     n_discrete_actions: int = 4
     gamma: float = 0.99
     lmbda: float = 0.95

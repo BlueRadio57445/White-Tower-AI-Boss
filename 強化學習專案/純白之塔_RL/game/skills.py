@@ -178,6 +178,7 @@ class SkillExecutor:
                 hit_target.health.damage(skill.damage)
 
                 if not hit_target.health.is_alive:
+                    hit_target.despawn()
                     self.event_bus.publish(GameEvent(
                         EventType.ENTITY_KILLED,
                         source_entity=caster,

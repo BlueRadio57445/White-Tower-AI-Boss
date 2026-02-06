@@ -202,7 +202,7 @@ class PygameRenderer:
 
     def draw_monster(self, world) -> None:
         """
-        Draw the monster entity.
+        Draw all monster entities.
 
         Args:
             world: GameWorld instance
@@ -210,38 +210,38 @@ class PygameRenderer:
         if not world.monsters:
             return
 
-        monster = world.monsters[0]
-        if not monster.is_alive or not monster.has_position():
-            return
+        for monster in world.monsters:
+            if not monster.is_alive or not monster.has_position():
+                continue
 
-        pos = monster.position.as_array()
-        angle = monster.position.angle
-        screen_pos = self.world_to_screen(pos)
+            pos = monster.position.as_array()
+            angle = monster.position.angle
+            screen_pos = self.world_to_screen(pos)
 
-        # Draw monster as triangle
-        self.draw_entity_with_direction(
-            screen_pos, angle, COLORS['monster'], size=16
-        )
-
-        # Draw health bar above monster
-        if monster.has_health():
-            bar_width = 30
-            bar_height = 4
-            health_pct = monster.health.percentage
-
-            bar_x = screen_pos[0] - bar_width // 2
-            bar_y = screen_pos[1] - 25
-
-            # Background
-            pygame.draw.rect(
-                self.screen, (60, 60, 60),
-                (bar_x, bar_y, bar_width, bar_height)
+            # Draw monster as triangle
+            self.draw_entity_with_direction(
+                screen_pos, angle, COLORS['monster'], size=16
             )
-            # Health fill
-            pygame.draw.rect(
-                self.screen, COLORS['monster'],
-                (bar_x, bar_y, int(bar_width * health_pct), bar_height)
-            )
+
+            # Draw health bar above monster
+            if monster.has_health():
+                bar_width = 30
+                bar_height = 4
+                health_pct = monster.health.percentage
+
+                bar_x = screen_pos[0] - bar_width // 2
+                bar_y = screen_pos[1] - 25
+
+                # Background
+                pygame.draw.rect(
+                    self.screen, (60, 60, 60),
+                    (bar_x, bar_y, bar_width, bar_height)
+                )
+                # Health fill
+                pygame.draw.rect(
+                    self.screen, COLORS['monster'],
+                    (bar_x, bar_y, int(bar_width * health_pct), bar_height)
+                )
 
     def draw_blood_pack(self, world) -> None:
         """

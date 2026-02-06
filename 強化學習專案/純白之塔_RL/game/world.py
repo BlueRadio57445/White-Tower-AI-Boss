@@ -10,6 +10,15 @@ from core.events import EventBus, GameEvent, EventType
 from game.entity import Entity, EntityFactory
 from game.physics import PhysicsSystem
 from game.skills import SkillExecutor, SkillRegistry
+from game.behaviors import (
+    BehaviorRegistry,
+    MonsterActionExecutor,
+    StationaryBehavior,
+    BerserkerBehavior,
+    HitAndRunBehavior,
+    OrbitMeleeBehavior,
+    OrbitRangedBehavior,
+)
 
 
 @dataclass
@@ -29,9 +38,9 @@ class Room:
     def __post_init__(self):
         if not self.spawn_points:
             self.spawn_points = {
-                'player': (5.0, 5.0),
-                'monster': (8.0, 8.0),
-                'blood_pack': (2.0, 8.0)
+                'player': (8.0, 5.0),
+                'monsters': [(2.0, 2.0), (8.0, 2.0), (2.0, 8.0), (8.0, 8.0)],
+                'blood_pack': (5.0, 8.0)
             }
 
     def random_position(self, margin: float = 1.0) -> np.ndarray:
@@ -58,6 +67,7 @@ class GameWorld:
         self.physics = PhysicsSystem(self.event_bus, self.room.size)
         self.skill_registry = SkillRegistry()
         self.skill_executor = SkillExecutor(self.event_bus, self.skill_registry)
+        self.monster_action_executor = MonsterActionExecutor(self.room.size)
 
         # Entity tracking
         self.entities: List[Entity] = []
@@ -82,14 +92,27 @@ class GameWorld:
         self.player = EntityFactory.create_player(px, py)
         self.entities.append(self.player)
 
-        # Create monster
-        mx, my = self.room.spawn_points.get('monster', (8.0, 8.0))
-        monster = EntityFactory.create_monster(mx, my)
-        self.monsters.append(monster)
-        self.entities.append(monster)
+        # Create monsters (4 monsters with different behaviors)
+        monster_spawns = self.room.spawn_points.get(
+            'monsters', [(2.0, 2.0), (8.0, 2.0), (2.0, 8.0), (8.0, 8.0)]
+        )
+
+        # Default behaviors for each monster (simulating different player types)
+        default_behaviors = [
+            BerserkerBehavior(),                              # 狂戰士：正面衝鋒
+            HitAndRunBehavior(),                              # 偷傷害：打一下就跑
+            OrbitMeleeBehavior(clockwise=True),               # 近戰繞圈
+            OrbitRangedBehavior(weapon_type="bow"),           # 遠程繞圈（弓箭手）
+        ]
+
+        for i, (mx, my) in enumerate(monster_spawns):
+            behavior = default_behaviors[i] if i < len(default_behaviors) else StationaryBehavior()
+            monster = EntityFactory.create_monster(mx, my, movement_behavior=behavior)
+            self.monsters.append(monster)
+            self.entities.append(monster)
 
         # Create blood pack
-        bx, by = self.room.spawn_points.get('blood_pack', (2.0, 8.0))
+        bx, by = self.room.spawn_points.get('blood_pack', (5.0, 8.0))
         blood = EntityFactory.create_blood_pack(bx, by)
         self.items.append(blood)
         self.entities.append(blood)
@@ -110,13 +133,12 @@ class GameWorld:
             data={'tick': self.tick_count}
         ))
 
+        # Process monster movements
+        self._update_monster_movements()
+
         # Process skill casting for player
         if self.player and self.player.has_skills() and self.player.skills.is_casting:
-            event = self.skill_executor.tick(self.player, self.monsters)
-
-            # Respawn killed monsters
-            if event and event.event_type == EventType.SKILL_CAST_COMPLETE:
-                self._respawn_killed_monsters()
+            self.skill_executor.tick(self.player, self.monsters)
 
         # Check item pickups
         if self.player:
@@ -127,21 +149,65 @@ class GameWorld:
         # Clean up dead entities
         self._cleanup_entities()
 
-    def _respawn_killed_monsters(self) -> None:
-        """Respawn any dead monsters at random positions."""
+    def _update_monster_movements(self) -> None:
+        """Update all monster behaviors (movement + turning + attack)."""
         for monster in self.monsters:
-            if not monster.health.is_alive:
-                # Reset health and position
-                monster.health.current = monster.health.maximum
-                monster.is_alive = True
-                new_pos = self.room.random_position()
-                monster.position.set_from_array(new_pos)
+            if not monster.is_alive or not monster.has_movement_behavior():
+                continue
 
-                self.event_bus.publish(GameEvent(
-                    EventType.ENTITY_SPAWNED,
-                    source_entity=monster,
-                    data={'reason': 'respawn'}
-                ))
+            behavior = monster.movement_behavior
+
+            # 1. Behavior decides the action
+            action = behavior.decide_action(monster, self)
+
+            # 2. Execute the action
+            result = self.monster_action_executor.execute(monster, action, behavior)
+
+            # 3. Handle attack results
+            if result.get("attacked"):
+                self._process_monster_attack(monster, behavior, result)
+
+    def _process_monster_attack(self, monster: Entity, behavior, result: dict) -> None:
+        """Process monster attack results."""
+        if not self.player or not self.player.is_alive:
+            return
+
+        # Check if player is in range
+        if not monster.has_position() or not self.player.has_position():
+            return
+
+        monster_pos = monster.position.as_array()
+        player_pos = self.player.position.as_array()
+        distance = np.linalg.norm(player_pos - monster_pos)
+
+        # Check if attack hits
+        if distance <= behavior.attack_range:
+            # Check if monster is facing the player
+            angle_diff = behavior._get_angle_to_target(
+                monster_pos, monster.position.angle, player_pos
+            )
+            if behavior._is_facing_target(angle_diff, tolerance=0.5):
+                damage = result.get("attack_damage", 0)
+
+                # Apply damage to player
+                if self.player.has_health():
+                    self.player.health.damage(damage)
+
+                    self.event_bus.publish(GameEvent(
+                        EventType.DAMAGE_TAKEN,
+                        source_entity=monster,
+                        target_entity=self.player,
+                        data={"damage": damage}
+                    ))
+
+                    # Check player death
+                    if not self.player.health.is_alive:
+                        self.player.despawn()
+                        self.event_bus.publish(GameEvent(
+                            EventType.AGENT_DIED,
+                            source_entity=monster,
+                            target_entity=self.player
+                        ))
 
     def _respawn_item(self, item: Entity) -> None:
         """Respawn a collected item at a random position."""
@@ -160,6 +226,7 @@ class GameWorld:
     def _cleanup_entities(self) -> None:
         """Remove dead entities from tracking lists."""
         self.entities = [e for e in self.entities if e.is_alive]
+        self.monsters = [m for m in self.monsters if m.is_alive]
         self.items = [i for i in self.items if i.is_alive]
 
     def execute_action(self, action_discrete: int, action_continuous: float) -> str:
@@ -217,6 +284,14 @@ class GameWorld:
         if self.monsters and self.monsters[0].has_position():
             return self.monsters[0].position.as_array()
         return np.array([0.0, 0.0])
+
+    def get_alive_monster_positions(self) -> List[np.ndarray]:
+        """Get positions of all alive monsters."""
+        positions = []
+        for monster in self.monsters:
+            if monster.is_alive and monster.has_position():
+                positions.append(monster.position.as_array())
+        return positions
 
     def get_blood_pack_position(self) -> np.ndarray:
         """Get first blood pack position as numpy array."""

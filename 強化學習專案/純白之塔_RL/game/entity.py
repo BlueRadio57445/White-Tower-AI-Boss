@@ -3,11 +3,14 @@ Entity system - base class and factory for game entities.
 Entities are containers for components with a unique ID.
 """
 
-from typing import Dict, Any, Optional, Type, TypeVar, List
+from typing import Dict, Any, Optional, Type, TypeVar, List, TYPE_CHECKING
 from dataclasses import dataclass, field
 import numpy as np
 
 from .components import Position, Health, Skills, Tags
+
+if TYPE_CHECKING:
+    from .behaviors.base import MovementBehavior
 
 T = TypeVar('T')
 
@@ -37,6 +40,7 @@ class Entity:
         self._health: Optional[Health] = None
         self._skills: Optional[Skills] = None
         self._tags: Tags = Tags()
+        self._movement_behavior: Optional['MovementBehavior'] = None
 
         # Custom components storage
         self._components: Dict[str, Any] = {}
@@ -55,6 +59,16 @@ class Entity:
     def has_position(self) -> bool:
         """Check if entity has a position component."""
         return self._position is not None
+
+    @property
+    def angle(self) -> float:
+        """Get facing angle (convenience property)."""
+        return self.position.angle
+
+    @angle.setter
+    def angle(self, value: float) -> None:
+        """Set facing angle (convenience property)."""
+        self.position.angle = value
 
     @property
     def health(self) -> Health:
@@ -85,6 +99,19 @@ class Entity:
     def has_skills(self) -> bool:
         """Check if entity has a skills component."""
         return self._skills is not None
+
+    @property
+    def movement_behavior(self) -> Optional['MovementBehavior']:
+        """Get movement behavior."""
+        return self._movement_behavior
+
+    @movement_behavior.setter
+    def movement_behavior(self, value: 'MovementBehavior') -> None:
+        self._movement_behavior = value
+
+    def has_movement_behavior(self) -> bool:
+        """Check if entity has a movement behavior."""
+        return self._movement_behavior is not None
 
     @property
     def tags(self) -> Tags:
@@ -166,7 +193,13 @@ class EntityFactory:
         return player
 
     @staticmethod
-    def create_monster(x: float, y: float, monster_type: str = "basic") -> Entity:
+    def create_monster(
+        x: float,
+        y: float,
+        monster_type: str = "basic",
+        health: float = 100,
+        movement_behavior: Optional['MovementBehavior'] = None
+    ) -> Entity:
         """
         Create a monster entity.
 
@@ -174,16 +207,22 @@ class EntityFactory:
             x: Initial X position
             y: Initial Y position
             monster_type: Type of monster for behavior lookup
+            health: Monster health points
+            movement_behavior: Movement behavior instance (stationary if None)
 
         Returns:
             Configured monster entity
         """
         monster = Entity("monster")
         monster.position = Position(x, y)
-        monster.health = Health(current=100, maximum=100)
+        monster.health = Health(current=health, maximum=health)
         monster.add_tag("monster")
         monster.add_tag("targetable")
         monster.add_tag(f"monster_{monster_type}")
+
+        if movement_behavior is not None:
+            monster.movement_behavior = movement_behavior
+
         return monster
 
     @staticmethod
