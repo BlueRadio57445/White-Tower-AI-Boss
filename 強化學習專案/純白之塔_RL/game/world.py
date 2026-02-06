@@ -10,6 +10,7 @@ from core.events import EventBus, GameEvent, EventType
 from game.entity import Entity, EntityFactory
 from game.physics import PhysicsSystem
 from game.skills import SkillExecutor, SkillRegistry
+from game.projectile import ProjectileManager, ProjectileType
 from game.behaviors import (
     BehaviorRegistry,
     MonsterActionExecutor,
@@ -68,6 +69,7 @@ class GameWorld:
         self.skill_registry = SkillRegistry()
         self.skill_executor = SkillExecutor(self.event_bus, self.skill_registry)
         self.monster_action_executor = MonsterActionExecutor(self.room.size)
+        self.projectile_manager = ProjectileManager(self.event_bus, self.room.size)
 
         # Entity tracking
         self.entities: List[Entity] = []
@@ -86,6 +88,7 @@ class GameWorld:
         self.tick_count = 0
 
         EntityFactory.reset_id_counter()
+        self.projectile_manager.clear()
 
         # Create player
         px, py = self.room.spawn_points.get('player', (1.0, 1.0))
@@ -146,6 +149,9 @@ class GameWorld:
             for item in collected:
                 self._respawn_item(item)
 
+        # Update projectiles and check collisions with player
+        self._update_projectiles()
+
         # Clean up dead entities
         self._cleanup_entities()
 
@@ -180,34 +186,56 @@ class GameWorld:
         player_pos = self.player.position.as_array()
         distance = np.linalg.norm(player_pos - monster_pos)
 
-        # Check if attack hits
-        if distance <= behavior.attack_range:
-            # Check if monster is facing the player
-            angle_diff = behavior._get_angle_to_target(
-                monster_pos, monster.position.angle, player_pos
+        # Check if attack hits (must be in range and facing target)
+        if distance > behavior.attack_range:
+            return
+
+        angle_diff = behavior._get_angle_to_target(
+            monster_pos, monster.position.angle, player_pos
+        )
+        if not behavior._is_facing_target(angle_diff, tolerance=0.5):
+            return
+
+        damage = result.get("attack_damage", 0)
+
+        # Check if this is a ranged attack (OrbitRangedBehavior)
+        if hasattr(behavior, 'weapon_type'):
+            # Ranged attack: spawn projectile
+            weapon_type = behavior.weapon_type
+            if weapon_type == "bow":
+                proj_type = ProjectileType.ARROW
+            else:  # staff
+                proj_type = ProjectileType.MAGIC_BOLT
+
+            # Direction from monster to player
+            direction = player_pos - monster_pos
+            self.projectile_manager.spawn_projectile(
+                position=monster_pos,
+                direction=direction,
+                owner_id=monster.id,
+                projectile_type=proj_type,
+                damage_override=damage
             )
-            if behavior._is_facing_target(angle_diff, tolerance=0.5):
-                damage = result.get("attack_damage", 0)
+        else:
+            # Melee attack: direct damage
+            if self.player.has_health():
+                self.player.health.damage(damage)
 
-                # Apply damage to player
-                if self.player.has_health():
-                    self.player.health.damage(damage)
+                self.event_bus.publish(GameEvent(
+                    EventType.DAMAGE_TAKEN,
+                    source_entity=monster,
+                    target_entity=self.player,
+                    data={"damage": damage}
+                ))
 
+                # Check player death
+                if not self.player.health.is_alive:
+                    self.player.despawn()
                     self.event_bus.publish(GameEvent(
-                        EventType.DAMAGE_TAKEN,
+                        EventType.AGENT_DIED,
                         source_entity=monster,
-                        target_entity=self.player,
-                        data={"damage": damage}
+                        target_entity=self.player
                     ))
-
-                    # Check player death
-                    if not self.player.health.is_alive:
-                        self.player.despawn()
-                        self.event_bus.publish(GameEvent(
-                            EventType.AGENT_DIED,
-                            source_entity=monster,
-                            target_entity=self.player
-                        ))
 
     def _respawn_item(self, item: Entity) -> None:
         """Respawn a collected item at a random position."""
@@ -228,6 +256,35 @@ class GameWorld:
         self.entities = [e for e in self.entities if e.is_alive]
         self.monsters = [m for m in self.monsters if m.is_alive]
         self.items = [i for i in self.items if i.is_alive]
+
+    def _update_projectiles(self) -> None:
+        """Update all projectiles and handle collisions with player."""
+        if not self.player or not self.player.is_alive:
+            return
+
+        hits = self.projectile_manager.update(self.player)
+
+        for hit_info in hits:
+            damage = hit_info["damage"]
+
+            if self.player.has_health():
+                self.player.health.damage(damage)
+
+                self.event_bus.publish(GameEvent(
+                    EventType.DAMAGE_TAKEN,
+                    source_entity=None,  # Projectile source
+                    target_entity=self.player,
+                    data={"damage": damage, "source": "projectile"}
+                ))
+
+                # Check player death
+                if not self.player.health.is_alive:
+                    self.player.despawn()
+                    self.event_bus.publish(GameEvent(
+                        EventType.AGENT_DIED,
+                        target_entity=self.player,
+                        data={"source": "projectile"}
+                    ))
 
     def execute_action(self, action_discrete: int, action_continuous: float) -> str:
         """
@@ -311,3 +368,7 @@ class GameWorld:
         if self.player and self.player.has_skills():
             return self.player.skills.is_ready
         return False
+
+    def get_active_projectiles(self) -> List:
+        """Get all active projectiles for rendering."""
+        return self.projectile_manager.get_active_projectiles()

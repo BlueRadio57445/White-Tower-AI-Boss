@@ -1,8 +1,31 @@
 # Monster 系統設計文檔
 
-## 概述
+## ✅ 實作狀態：已完成
 
 Monster 代表真人 Minecraft 玩家。為了讓訓練出的 Boss AI 能有效對抗真人，Monster 的行為必須模擬真實玩家的操作方式。
+
+### 實際實作摘要
+
+| 檔案 | 說明 |
+|-----|------|
+| `game/behaviors/__init__.py` | 導出所有類別 |
+| `game/behaviors/base.py` | MovementType, TurningType, AttackType, MonsterAction, MonsterBehavior, BehaviorRegistry, MonsterActionExecutor |
+| `game/behaviors/stationary.py` | StationaryBehavior |
+| `game/behaviors/berserker.py` | BerserkerBehavior |
+| `game/behaviors/hit_and_run.py` | HitAndRunBehavior |
+| `game/behaviors/orbit.py` | OrbitMeleeBehavior, OrbitRangedBehavior |
+
+### 已實作行為
+
+| 行為 | 類型 | 策略 |
+|-----|------|------|
+| `stationary` | 站樁 | 不動，面向攻擊 |
+| `berserker` | 近戰 | 正面衝鋒，永不後退 |
+| `hit_and_run` | 近戰 | 打一下就 180° 掉頭逃跑 |
+| `orbit_melee` | 近戰 | 橫移繞圈，近距離攻擊 |
+| `orbit_ranged` | 遠程 | 保持距離，發射投射物（bow/staff）|
+
+---
 
 ### 設計原則
 

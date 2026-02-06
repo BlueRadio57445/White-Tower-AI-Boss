@@ -27,6 +27,9 @@ COLORS = {
     'progress_bg': (60, 60, 60),
     'text': (220, 220, 220),
     'info_bg': (40, 40, 40),
+    'arrow': (139, 90, 43),           # Brown for arrows
+    'magic_bolt': (180, 100, 255),    # Purple for magic bolts
+    'magic_glow': (200, 150, 255, 100),  # Light purple glow
 }
 
 
@@ -377,6 +380,92 @@ class PygameRenderer:
         text_rect = text_surface.get_rect(center=(self.width // 2, bar_y + bar_height // 2))
         self.screen.blit(text_surface, text_rect)
 
+    def draw_projectiles(self, world) -> None:
+        """
+        Draw all active projectiles.
+
+        Args:
+            world: GameWorld instance
+        """
+        projectiles = world.get_active_projectiles()
+
+        for proj in projectiles:
+            pos = proj.position
+            screen_pos = self.world_to_screen(pos)
+
+            # Get projectile direction for drawing
+            direction = proj.direction
+
+            # Import here to avoid circular import
+            from game.projectile import ProjectileType
+
+            if proj.projectile_type == ProjectileType.ARROW:
+                self._draw_arrow(screen_pos, direction)
+            else:  # MAGIC_BOLT
+                self._draw_magic_bolt(screen_pos)
+
+    def _draw_arrow(self, pos: Tuple[int, int], direction) -> None:
+        """Draw an arrow projectile."""
+        # Arrow length in pixels
+        length = 12
+        head_size = 5
+
+        # Calculate end point based on direction
+        angle = math.atan2(direction[1], direction[0])
+        end_x = pos[0] + length * math.cos(angle)
+        end_y = pos[1] - length * math.sin(angle)  # Y inverted
+
+        # Draw arrow shaft
+        pygame.draw.line(
+            self.screen, COLORS['arrow'],
+            pos, (end_x, end_y), 2
+        )
+
+        # Draw arrowhead
+        head_angle1 = angle + 2.5  # ~143 degrees
+        head_angle2 = angle - 2.5
+        head1 = (
+            end_x + head_size * math.cos(head_angle1),
+            end_y - head_size * math.sin(head_angle1)
+        )
+        head2 = (
+            end_x + head_size * math.cos(head_angle2),
+            end_y - head_size * math.sin(head_angle2)
+        )
+        pygame.draw.polygon(
+            self.screen, COLORS['arrow'],
+            [(end_x, end_y), head1, head2]
+        )
+
+    def _draw_magic_bolt(self, pos: Tuple[int, int]) -> None:
+        """Draw a magic bolt projectile with glow effect."""
+        # Draw glow (larger circle, semi-transparent)
+        glow_radius = 10
+        glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(
+            glow_surface,
+            COLORS['magic_glow'],
+            (glow_radius, glow_radius),
+            glow_radius
+        )
+        self.screen.blit(
+            glow_surface,
+            (pos[0] - glow_radius, pos[1] - glow_radius)
+        )
+
+        # Draw core (smaller solid circle)
+        core_radius = 5
+        pygame.draw.circle(
+            self.screen, COLORS['magic_bolt'],
+            pos, core_radius
+        )
+
+        # Draw bright center
+        pygame.draw.circle(
+            self.screen, (255, 220, 255),
+            pos, 2
+        )
+
     def draw_info_panel(
         self,
         epoch: int,
@@ -455,6 +544,9 @@ class PygameRenderer:
         # Draw entities
         self.draw_blood_pack(world)
         self.draw_monster(world)
+
+        # Draw projectiles
+        self.draw_projectiles(world)
 
         # Draw skill indicator (before player so it's behind)
         self.draw_skill_indicator(world)

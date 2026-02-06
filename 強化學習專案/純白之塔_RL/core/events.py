@@ -27,6 +27,8 @@ class EventType(Enum):
     SKILL_MISSED = auto()            # Skill missed target
     ENTITY_DAMAGED = auto()          # Entity took damage
     ENTITY_KILLED = auto()           # Entity died
+    DAMAGE_TAKEN = auto()            # Player/agent took damage
+    AGENT_DIED = auto()              # Player/agent died
 
     # Item events
     ITEM_COLLECTED = auto()          # Item was picked up
@@ -35,6 +37,11 @@ class EventType(Enum):
     # Entity lifecycle
     ENTITY_SPAWNED = auto()          # New entity created
     ENTITY_DESPAWNED = auto()        # Entity removed from world
+
+    # Projectile events
+    PROJECTILE_SPAWNED = auto()      # Projectile was fired
+    PROJECTILE_HIT = auto()          # Projectile hit a target
+    PROJECTILE_DESPAWNED = auto()    # Projectile removed (hit wall/timeout)
 
 
 @dataclass
