@@ -176,6 +176,10 @@ class Trainer:
             if render:
                 self._render(epoch, total_reward, a_d, a_c, event, action_names)
 
+            # Check for episode termination (agent died or all enemies killed)
+            if self.reward_calculator.is_episode_done():
+                break
+
         # Update agent
         self.agent.update(
             lr_actor_discrete=self.config.lr_actor_discrete,

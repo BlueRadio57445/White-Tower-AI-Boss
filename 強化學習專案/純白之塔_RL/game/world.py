@@ -258,9 +258,19 @@ class GameWorld:
 
     def _cleanup_entities(self) -> None:
         """Remove dead entities from tracking lists."""
+        # Check if any monsters were alive before cleanup
+        had_monsters = len(self.monsters) > 0
+
         self.entities = [e for e in self.entities if e.is_alive]
         self.monsters = [m for m in self.monsters if m.is_alive]
         self.items = [i for i in self.items if i.is_alive]
+
+        # Check if all monsters are now dead (victory condition)
+        if had_monsters and len(self.monsters) == 0:
+            self.event_bus.publish(GameEvent(
+                EventType.ALL_ENEMIES_DEAD,
+                data={'tick': self.tick_count}
+            ))
 
     def _update_projectiles(self) -> None:
         """Update all projectiles and handle collisions with player."""

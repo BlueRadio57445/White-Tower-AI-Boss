@@ -29,6 +29,7 @@ class EventType(Enum):
     ENTITY_KILLED = auto()           # Entity died
     DAMAGE_TAKEN = auto()            # Player/agent took damage
     AGENT_DIED = auto()              # Player/agent died
+    ALL_ENEMIES_DEAD = auto()        # All enemies have been killed
 
     # Item events
     ITEM_COLLECTED = auto()          # Item was picked up

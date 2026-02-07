@@ -21,6 +21,8 @@ class RewardCalculator:
         EventType.SKILL_CAST_COMPLETE: 12.0,
         EventType.SKILL_MISSED: 0.0,
         EventType.ENTITY_KILLED: 0.0,  # Already counted in SKILL_CAST_COMPLETE
+        EventType.AGENT_DIED: -200.0,
+        EventType.ALL_ENEMIES_DEAD: 300.0,
     }
 
     def __init__(
@@ -44,6 +46,10 @@ class RewardCalculator:
         self.accumulated_reward: float = 0.0
         self.last_event: str = ""
 
+        # Episode termination state
+        self._episode_done: bool = False
+        self._win: bool = False
+
         # Subscribe to relevant events
         self._subscribe()
 
@@ -54,6 +60,8 @@ class RewardCalculator:
         self.event_bus.subscribe(EventType.ITEM_COLLECTED, self._on_item_collected)
         self.event_bus.subscribe(EventType.SKILL_CAST_COMPLETE, self._on_skill_hit)
         self.event_bus.subscribe(EventType.SKILL_MISSED, self._on_skill_missed)
+        self.event_bus.subscribe(EventType.AGENT_DIED, self._on_agent_died)
+        self.event_bus.subscribe(EventType.ALL_ENEMIES_DEAD, self._on_all_enemies_dead)
 
     def _on_tick(self, event: GameEvent) -> None:
         """Handle tick event (time penalty)."""
@@ -81,6 +89,20 @@ class RewardCalculator:
         """Handle skill miss event."""
         self.accumulated_reward += self.rewards[EventType.SKILL_MISSED]
         self.last_event = "MISSED..."
+
+    def _on_agent_died(self, event: GameEvent) -> None:
+        """Handle agent death event."""
+        self.accumulated_reward += self.rewards[EventType.AGENT_DIED]
+        self.last_event = "AGENT DIED!"
+        self._episode_done = True
+        self._win = False
+
+    def _on_all_enemies_dead(self, event: GameEvent) -> None:
+        """Handle all enemies killed event (victory)."""
+        self.accumulated_reward += self.rewards[EventType.ALL_ENEMIES_DEAD]
+        self.last_event = "VICTORY!"
+        self._episode_done = True
+        self._win = True
 
     def get_reward(self) -> float:
         """
@@ -117,6 +139,16 @@ class RewardCalculator:
         """Reset accumulated reward and event."""
         self.accumulated_reward = 0.0
         self.last_event = ""
+        self._episode_done = False
+        self._win = False
+
+    def is_episode_done(self) -> bool:
+        """Check if episode has ended (agent died or all enemies killed)."""
+        return self._episode_done
+
+    def is_win(self) -> bool:
+        """Check if episode ended in victory."""
+        return self._win
 
     def set_reward(self, event_type: EventType, value: float) -> None:
         """
@@ -135,3 +167,5 @@ class RewardCalculator:
         self.event_bus.unsubscribe(EventType.ITEM_COLLECTED, self._on_item_collected)
         self.event_bus.unsubscribe(EventType.SKILL_CAST_COMPLETE, self._on_skill_hit)
         self.event_bus.unsubscribe(EventType.SKILL_MISSED, self._on_skill_missed)
+        self.event_bus.unsubscribe(EventType.AGENT_DIED, self._on_agent_died)
+        self.event_bus.unsubscribe(EventType.ALL_ENEMIES_DEAD, self._on_all_enemies_dead)
