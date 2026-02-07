@@ -26,17 +26,48 @@ python main.py --no-render
 
 # Export weights to custom path
 python main.py --export my_weights.json
+
+# Developer mode (keyboard control for debugging)
+python main.py --dev
 ```
+
+### Developer Mode
+
+Developer mode allows manual control of the player for debugging game logic. The game world is frozen until keyboard input is received.
+
+**Controls**:
+- `W`: Move forward
+- `A`: Turn left
+- `D`: Turn right
+- `P`: Pass (advance one tick without action)
+- `1`: Cast skill 1 (basic attack)
+- `2`: Cast skill 2 (reserved)
+- `R`: Reset world
+- `ESC`: Quit
+
+**Mouse**: Controls aim direction during casting (aim offset clamped to ±0.5 radians)
 
 ## Architecture
 
 ### Data Flow
+
+**Training Mode** (Agent → Player → World):
 ```
 GameWorld.tick() → EventBus → RewardCalculator → reward
      ↓
 FeatureExtractor.extract() → 27-dim observation → HybridPPOAgent → (discrete_action, continuous_action)
      ↓
 GameWorld.execute_action() → Player.execute_action() → PhysicsSystem / SkillExecutor
+```
+
+**Developer Mode** (Keyboard → Player → World):
+```
+Keyboard Input → DevMode._wait_for_input() → (discrete_action)
+Mouse Position → DevMode._calculate_aim_offset() → (continuous_action)
+     ↓
+GameWorld.execute_action() → Player.execute_action() → PhysicsSystem / SkillExecutor
+     ↓
+GameWorld.tick() (only when input received)
 ```
 
 ### Module Responsibilities
@@ -50,6 +81,7 @@ GameWorld.execute_action() → Player.execute_action() → PhysicsSystem / Skill
 | `ai/` | Agent logic: `HybridPPOAgent`, `FeatureExtractor`, `RewardCalculator`, `WeightExporter` |
 | `training/` | Training loop: `Trainer`, `TrainingConfig` |
 | `rendering/` | Visualization: `PygameRenderer` (direction indicators, skill range fan, casting bar) |
+| `dev_mode.py` | Developer mode: keyboard control for debugging (`DevMode`, `DevModeRenderer`) |
 
 ### Action Space
 

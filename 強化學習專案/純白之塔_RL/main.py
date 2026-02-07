@@ -11,6 +11,7 @@ Usage:
     python main.py --export model.json  # Custom export path
     python main.py --continue         # Continue training from weights.json
     python main.py --continue --export my_weights.json  # Continue from custom path
+    python main.py --dev              # Developer mode (keyboard control)
 """
 
 import argparse
@@ -63,6 +64,10 @@ def parse_args():
         '--continue', dest='continue_training', action='store_true',
         help='Continue training from existing weights file'
     )
+    parser.add_argument(
+        '--dev', action='store_true',
+        help='Run in developer mode (keyboard control for debugging)'
+    )
 
     return parser.parse_args()
 
@@ -70,6 +75,13 @@ def parse_args():
 def main():
     """Main training function."""
     args = parse_args()
+
+    # Developer mode
+    if args.dev:
+        from dev_mode import DevMode
+        dev_mode = DevMode(world_size=10.0)
+        dev_mode.run()
+        return
 
     # Configure training
     config = TrainingConfig(

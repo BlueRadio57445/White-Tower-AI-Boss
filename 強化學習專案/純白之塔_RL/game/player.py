@@ -233,6 +233,11 @@ class Player:
 
         event = ""
 
+        # Check if movement is blocked during wind-up
+        is_movement_action = action_discrete in (0, 1, 2)
+        if is_movement_action and self._is_movement_blocked():
+            return "WIND-UP..."  # Can't move during wind-up
+
         if action_discrete == 0:  # Move forward
             success = physics.move_forward(self.entity, speed=self.config.move_speed)
             if not success:
@@ -257,6 +262,30 @@ class Player:
                     event = "CASTING..."
 
         return event
+
+    def _is_movement_blocked(self) -> bool:
+        """
+        Check if movement is blocked (e.g., during wind-up of a skill
+        that doesn't allow movement).
+
+        Returns:
+            True if movement is currently blocked
+        """
+        if not self.entity or not self.entity.has_skills():
+            return False
+
+        skills = self.entity.skills
+        if not skills.is_casting:
+            return False
+
+        # Get the current skill config
+        current_skill_id = skills.current_skill
+        if current_skill_id:
+            skill_config = self.get_skill_config(current_skill_id)
+            if skill_config and not skill_config.can_move_during_wind_up:
+                return True
+
+        return False
 
     def get_skill_config(self, skill_id: str) -> Optional[SkillConfig]:
         """
