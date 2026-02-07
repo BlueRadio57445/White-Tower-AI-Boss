@@ -226,13 +226,14 @@ class EntityFactory:
         return monster
 
     @staticmethod
-    def create_blood_pack(x: float, y: float) -> Entity:
+    def create_blood_pack(x: float, y: float, heal_amount: float = 30.0) -> Entity:
         """
         Create a blood pack (health pickup) entity.
 
         Args:
             x: Initial X position
             y: Initial Y position
+            heal_amount: Amount of health restored when collected
 
         Returns:
             Configured blood pack entity
@@ -242,6 +243,7 @@ class EntityFactory:
         blood.add_tag("item")
         blood.add_tag("blood_pack")
         blood.add_tag("collectible")
+        blood.set_component("heal_amount", heal_amount)
         return blood
 
     @staticmethod

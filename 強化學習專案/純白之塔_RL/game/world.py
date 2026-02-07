@@ -152,6 +152,7 @@ class GameWorld:
         if self.player:
             collected = self.physics.check_pickups(self.player.entity, self.items)
             for item in collected:
+                self._process_item_pickup(item)
                 self._respawn_item(item)
 
         # Update projectiles and check collisions with player
@@ -241,6 +242,18 @@ class GameWorld:
                         source_entity=monster,
                         target_entity=self.player.entity
                     ))
+
+    def _process_item_pickup(self, item: Entity) -> None:
+        """Process the effects of picking up an item."""
+        if not self.player or not self.player.is_alive:
+            return
+
+        # Handle blood pack healing
+        if item.has_tag("blood_pack"):
+            heal_amount = item.get_component("heal_amount") or 30.0
+
+            if self.player.has_health():
+                self.player.health.heal(heal_amount)
 
     def _respawn_item(self, item: Entity) -> None:
         """Respawn a collected item at a random position."""
