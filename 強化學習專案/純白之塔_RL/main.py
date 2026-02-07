@@ -9,9 +9,12 @@ Usage:
     python main.py --epochs 1000      # Quick training
     python main.py --no-render        # Training without visualization
     python main.py --export model.json  # Custom export path
+    python main.py --continue         # Continue training from weights.json
+    python main.py --continue --export my_weights.json  # Continue from custom path
 """
 
 import argparse
+import os
 import numpy as np
 
 from training.trainer import Trainer, TrainingConfig
@@ -56,6 +59,10 @@ def parse_args():
         '--ascii', action='store_true',
         help='Use ASCII rendering instead of Pygame'
     )
+    parser.add_argument(
+        '--continue', dest='continue_training', action='store_true',
+        help='Continue training from existing weights file'
+    )
 
     return parser.parse_args()
 
@@ -74,8 +81,21 @@ def main():
         use_pygame=not args.ascii
     )
 
-    # Create trainer and run
+    # Create trainer
     trainer = Trainer(config)
+
+    # Load existing weights if --continue is specified
+    if args.continue_training:
+        weights_path = args.export
+        if os.path.exists(weights_path):
+            WeightExporter.load_into_agent(trainer.agent, weights_path)
+            print(f"Loaded weights from: {weights_path}")
+            print(f"Continuing training with sigma: {trainer.agent.sigma:.4f}")
+        else:
+            print(f"Warning: Weights file not found: {weights_path}")
+            print("Starting training from scratch...")
+
+    # Run training
     history = trainer.train(render=not args.no_render)
 
     # Print final statistics
