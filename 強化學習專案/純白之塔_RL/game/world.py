@@ -327,7 +327,7 @@ class GameWorld:
         Execute a player action.
 
         Args:
-            action_discrete: 0=forward, 1=left, 2=right, 3=outer_slash, 4=missile, 5=hammer
+            action_discrete: 0=forward, 1=backward, 2=left, 3=right, 4=outer_slash, 5=missile, 6=hammer
             aim_values: List of aim values or single float (for backward compatibility)
 
         Returns:

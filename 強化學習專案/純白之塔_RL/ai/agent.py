@@ -17,27 +17,27 @@ class HybridPPOAgent:
     dead neuron problems. Supports both discrete and continuous actions.
 
     Action Space:
-        Discrete (6 actions): 0=FORWARD, 1=LEFT, 2=RIGHT, 3=OUTER_SLASH, 4=MISSILE, 5=HAMMER
+        Discrete (7 actions): 0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT, 4=OUTER_SLASH, 5=MISSILE, 6=HAMMER
         Continuous (2 actors): aim_missile (actor 0), aim_hammer (actor 1)
 
     Skill to Actor Mapping:
-        3 (outer_slash): No aim required
-        4 (missile): Uses aim_missile (actor 0)
-        5 (hammer): Uses aim_hammer (actor 1)
+        4 (outer_slash): No aim required
+        5 (missile): Uses aim_missile (actor 0)
+        6 (hammer): Uses aim_hammer (actor 1)
     """
 
     # Skill action to aim actor mapping
     # -1 means no aim required, 0 = aim_missile, 1 = aim_hammer
     SKILL_TO_AIM_ACTOR = {
-        3: -1,  # outer_slash - no aim
-        4: 0,   # missile - aim_missile
-        5: 1,   # hammer - aim_hammer
+        4: -1,  # outer_slash - no aim
+        5: 0,   # missile - aim_missile
+        6: 1,   # hammer - aim_hammer
     }
 
     def __init__(
         self,
         n_features: int,
-        n_discrete_actions: int = 6,
+        n_discrete_actions: int = 7,
         n_aim_actors: int = 2,
         gamma: float = 0.99,
         lmbda: float = 0.95,
@@ -51,7 +51,7 @@ class HybridPPOAgent:
 
         Args:
             n_features: Number of input features
-            n_discrete_actions: Number of discrete actions (default 6)
+            n_discrete_actions: Number of discrete actions (default 7)
             n_aim_actors: Number of aim actors (default 2)
             gamma: Discount factor
             lmbda: GAE lambda parameter
@@ -97,7 +97,7 @@ class HybridPPOAgent:
 
         Returns:
             Tuple of:
-                - action_discrete: Selected discrete action index (0-5)
+                - action_discrete: Selected discrete action index (0-6)
                 - aim_values: List of aim values for each actor
                 - prob_discrete: Probability of selected discrete action
                 - mus: List of mu values for each aim actor
@@ -134,7 +134,7 @@ class HybridPPOAgent:
         Get the relevant aim value for a given discrete action.
 
         Args:
-            action_discrete: The discrete action (0-5)
+            action_discrete: The discrete action (0-6)
             aim_values: List of aim values from all actors
 
         Returns:

@@ -96,6 +96,24 @@ class PhysicsSystem:
         direction = np.array([np.cos(angle), np.sin(angle)]) * speed
         return self.move_entity(entity, direction)
 
+    def move_backward(self, entity: Entity, speed: float = 0.6) -> bool:
+        """
+        Move entity backward based on its facing angle.
+
+        Args:
+            entity: The entity to move
+            speed: Movement speed
+
+        Returns:
+            True if movement was successful
+        """
+        if not entity.has_position():
+            return False
+
+        angle = entity.position.angle
+        direction = np.array([np.cos(angle), np.sin(angle)]) * (-speed)
+        return self.move_entity(entity, direction)
+
     def rotate_entity(self, entity: Entity, angle_delta: float) -> None:
         """
         Rotate an entity by a given angle.

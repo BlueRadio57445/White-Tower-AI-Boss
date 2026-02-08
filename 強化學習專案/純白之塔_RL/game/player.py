@@ -255,9 +255,9 @@ class Player:
 
     # Mapping from discrete action to skill ID
     SKILL_ACTION_MAP = {
-        3: "outer_slash",  # 外圈刮
-        4: "missile",      # 飛彈
-        5: "hammer",       # 鐵錘
+        4: "outer_slash",  # 外圈刮
+        5: "missile",      # 飛彈
+        6: "hammer",       # 鐵錘
     }
 
     def execute_action(
@@ -271,7 +271,7 @@ class Player:
         Execute a player action.
 
         Args:
-            action_discrete: 0=forward, 1=left, 2=right, 3=outer_slash, 4=missile, 5=hammer
+            action_discrete: 0=forward, 1=backward, 2=left, 3=right, 4=outer_slash, 5=missile, 6=hammer
             aim_values: List of aim values for each aim actor
             physics: Physics system for movement
             skill_executor: Skill executor for casting
@@ -285,7 +285,7 @@ class Player:
         event = ""
 
         # Check if movement is blocked during wind-up
-        is_movement_action = action_discrete in (0, 1, 2)
+        is_movement_action = action_discrete in (0, 1, 2, 3)
         if is_movement_action and self._is_movement_blocked():
             return "WIND-UP..."  # Can't move during wind-up
 
@@ -294,13 +294,18 @@ class Player:
             if not success:
                 event = "HIT WALL!"
 
-        elif action_discrete == 1:  # Rotate left
+        elif action_discrete == 1:  # Move backward
+            success = physics.move_backward(self.entity, speed=self.config.move_speed)
+            if not success:
+                event = "HIT WALL!"
+
+        elif action_discrete == 2:  # Rotate left
             physics.rotate_entity(self.entity, self.config.turn_speed)
 
-        elif action_discrete == 2:  # Rotate right
+        elif action_discrete == 3:  # Rotate right
             physics.rotate_entity(self.entity, -self.config.turn_speed)
 
-        elif action_discrete in self.SKILL_ACTION_MAP:  # Cast skill (3, 4, 5)
+        elif action_discrete in self.SKILL_ACTION_MAP:  # Cast skill (4, 5, 6)
             if self.entity.skills.is_ready:
                 skill_id = self.SKILL_ACTION_MAP[action_discrete]
                 skill_config = self.get_skill_config(skill_id)

@@ -28,7 +28,7 @@ class TrainingConfig:
 
     # Agent hyperparameters
     n_features: int = 27
-    n_discrete_actions: int = 6  # 0-2: movement, 3-5: skills
+    n_discrete_actions: int = 7  # 0-3: movement, 4-6: skills
     n_aim_actors: int = 2        # aim_missile, aim_hammer
     gamma: float = 0.99
     lmbda: float = 0.95
