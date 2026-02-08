@@ -15,6 +15,7 @@ class ProjectileType(Enum):
     """Types of projectiles in the game."""
     ARROW = auto()       # Bow attack - fast, lower damage
     MAGIC_BOLT = auto()  # Staff attack - slower, higher damage
+    SKILL_MISSILE = auto()  # Player skill projectile - fast, high damage
 
 
 # Projectile configuration by type
@@ -30,6 +31,12 @@ PROJECTILE_CONFIG: Dict[ProjectileType, Dict[str, Any]] = {
         "damage": 20.0,
         "radius": 0.4,
         "max_lifetime": 60,  # ticks
+    },
+    ProjectileType.SKILL_MISSILE: {
+        "speed": 1.5,
+        "damage": 40.0,
+        "radius": 0.5,
+        "max_lifetime": 40,  # ticks (max_range / speed)
     },
 }
 
@@ -171,17 +178,19 @@ class ProjectileManager:
 
         return projectile
 
-    def update(self, target_entity) -> List[Dict[str, Any]]:
+    def update(self, target_entity, monster_list: Optional[List] = None) -> List[Dict[str, Any]]:
         """
         Update all projectiles and check collisions.
 
         Args:
-            target_entity: The entity to check collisions against (typically the player/agent)
+            target_entity: The player entity (for monster projectiles to hit)
+            monster_list: List of monster entities (for player projectiles to hit)
 
         Returns:
             List of hit events (projectile hit target)
         """
         hits = []
+        monster_list = monster_list or []
 
         for projectile in self.projectiles:
             if not projectile.alive:
@@ -201,7 +210,50 @@ class ProjectileManager:
                 self._publish_despawn(projectile, "boundary")
                 continue
 
-            # Check collision with target
+            # For player skill missiles: check collision with monsters
+            if projectile.projectile_type == ProjectileType.SKILL_MISSILE:
+                hit_monster = self._check_monster_collision(projectile, monster_list)
+                if hit_monster:
+                    hit_info = {
+                        "projectile": projectile,
+                        "damage": projectile.damage,
+                        "projectile_type": projectile.projectile_type,
+                        "target": hit_monster,
+                    }
+                    hits.append(hit_info)
+
+                    # Apply damage to monster
+                    if hit_monster.has_health():
+                        hit_monster.health.damage(projectile.damage)
+
+                        # Check if monster died
+                        if not hit_monster.health.is_alive:
+                            hit_monster.despawn()
+                            self.event_bus.publish(GameEvent(
+                                EventType.ENTITY_KILLED,
+                                target_entity=hit_monster,
+                                data={
+                                    "source": "projectile",
+                                    "projectile_id": projectile.id,
+                                }
+                            ))
+
+                    # Publish SKILL_CAST_COMPLETE for reward
+                    self.event_bus.publish(GameEvent(
+                        EventType.SKILL_CAST_COMPLETE,
+                        target_entity=hit_monster,
+                        data={
+                            "projectile_id": projectile.id,
+                            "damage": projectile.damage,
+                            "projectile_type": projectile.projectile_type.name,
+                            "skill_id": "missile",
+                        }
+                    ))
+
+                    projectile.despawn()
+                    continue
+
+            # For monster projectiles: check collision with player
             if target_entity and self._check_entity_collision(projectile, target_entity):
                 hit_info = {
                     "projectile": projectile,
@@ -226,6 +278,22 @@ class ProjectileManager:
         self._cleanup()
 
         return hits
+
+    def _check_monster_collision(self, projectile: Projectile, monsters: List) -> Optional[Any]:
+        """
+        Check if projectile collides with any monster.
+
+        Args:
+            projectile: The projectile to check
+            monsters: List of monster entities
+
+        Returns:
+            The hit monster or None
+        """
+        for monster in monsters:
+            if self._check_entity_collision(projectile, monster):
+                return monster
+        return None
 
     def _check_boundary_collision(self, projectile: Projectile) -> bool:
         """Check if projectile hit world boundary."""

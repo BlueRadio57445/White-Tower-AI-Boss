@@ -28,7 +28,8 @@ class TrainingConfig:
 
     # Agent hyperparameters
     n_features: int = 27
-    n_discrete_actions: int = 4
+    n_discrete_actions: int = 6  # 0-2: movement, 3-5: skills
+    n_aim_actors: int = 2        # aim_missile, aim_hammer
     gamma: float = 0.99
     lmbda: float = 0.95
     epsilon: float = 0.2
@@ -76,6 +77,7 @@ class Trainer:
         self.agent = HybridPPOAgent(
             n_features=self.config.n_features,
             n_discrete_actions=self.config.n_discrete_actions,
+            n_aim_actors=self.config.n_aim_actors,
             gamma=self.config.gamma,
             lmbda=self.config.lmbda,
             epsilon=self.config.epsilon,
@@ -101,11 +103,11 @@ class Trainer:
         Returns:
             List of episode rewards
         """
-        action_names = ["MOVE", "LEFT", "RIGHT", "CAST"]
+        action_names = ["MOVE", "LEFT", "RIGHT", "外圈刮", "飛彈", "鐵錘"]
 
         print("Starting 2D Training... Squared Probability PPO Ready.")
         print(f"Discrete actions: {', '.join(action_names)}")
-        print("Continuous action: Aim offset during casting")
+        print("Continuous actions: aim_missile, aim_hammer")
         print(f"Features: {self.config.n_features} dimensions")
         print("Advantage: No dead neurons, only uses +, -, *, /")
         print()
@@ -156,10 +158,13 @@ class Trainer:
             obs = self.feature_extractor.extract(self.world)
 
             # Get action from agent
-            a_d, a_c, prob_d, mu, v, logits = self.agent.get_action(obs)
+            a_d, aim_values, prob_d, mus, v, logits = self.agent.get_action(obs)
+
+            # Get the relevant aim value for the selected action
+            aim_for_action = self.agent.get_aim_value_for_action(a_d, aim_values)
 
             # Execute action
-            action_event = self.world.execute_action(a_d, a_c)
+            action_event = self.world.execute_action(a_d, aim_values)
 
             # Process game tick
             self.world.tick()
@@ -169,12 +174,12 @@ class Trainer:
             event = self.reward_calculator.get_last_event() or action_event
 
             # Store transition
-            self.agent.store_transition((obs, a_d, a_c, prob_d, mu, v, logits, reward))
+            self.agent.store_transition((obs, a_d, aim_values, prob_d, mus, v, logits, reward))
             total_reward += reward
 
             # Render if requested
             if render:
-                self._render(epoch, total_reward, a_d, a_c, event, action_names)
+                self._render(epoch, total_reward, a_d, aim_for_action, event, action_names)
 
             # Check for episode termination (agent died or all enemies killed)
             if self.reward_calculator.is_episode_done():

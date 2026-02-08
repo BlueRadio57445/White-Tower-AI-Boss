@@ -3,7 +3,7 @@ PPO Agent with hybrid action space.
 Uses squared probability distribution for discrete actions (hardware-friendly).
 """
 
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict, Any
 import numpy as np
 
 from core.math_utils import squared_prob, gaussian_log_prob
@@ -15,12 +15,30 @@ class HybridPPOAgent:
 
     Uses squared probability distribution for discrete actions to avoid
     dead neuron problems. Supports both discrete and continuous actions.
+
+    Action Space:
+        Discrete (6 actions): 0=FORWARD, 1=LEFT, 2=RIGHT, 3=OUTER_SLASH, 4=MISSILE, 5=HAMMER
+        Continuous (2 actors): aim_missile (actor 0), aim_hammer (actor 1)
+
+    Skill to Actor Mapping:
+        3 (outer_slash): No aim required
+        4 (missile): Uses aim_missile (actor 0)
+        5 (hammer): Uses aim_hammer (actor 1)
     """
+
+    # Skill action to aim actor mapping
+    # -1 means no aim required, 0 = aim_missile, 1 = aim_hammer
+    SKILL_TO_AIM_ACTOR = {
+        3: -1,  # outer_slash - no aim
+        4: 0,   # missile - aim_missile
+        5: 1,   # hammer - aim_hammer
+    }
 
     def __init__(
         self,
         n_features: int,
-        n_discrete_actions: int,
+        n_discrete_actions: int = 6,
+        n_aim_actors: int = 2,
         gamma: float = 0.99,
         lmbda: float = 0.95,
         epsilon: float = 0.2,
@@ -33,7 +51,8 @@ class HybridPPOAgent:
 
         Args:
             n_features: Number of input features
-            n_discrete_actions: Number of discrete actions
+            n_discrete_actions: Number of discrete actions (default 6)
+            n_aim_actors: Number of aim actors (default 2)
             gamma: Discount factor
             lmbda: GAE lambda parameter
             epsilon: PPO clipping parameter
@@ -43,6 +62,7 @@ class HybridPPOAgent:
         """
         self.n_features = n_features
         self.n_discrete_actions = n_discrete_actions
+        self.n_aim_actors = n_aim_actors
         self.gamma = gamma
         self.lmbda = lmbda
         self.epsilon = epsilon
@@ -54,13 +74,21 @@ class HybridPPOAgent:
 
         # Initialize weights with small random values
         self.w_actor_discrete = np.random.randn(n_discrete_actions, n_features) * 0.01
-        self.w_actor_continuous_mu = np.random.randn(n_features) * 0.01
         self.w_critic = np.random.randn(n_features) * 0.01
+
+        # Multiple aim actors (one for each skill that needs aiming)
+        self.w_aim_actors = [
+            np.random.randn(n_features) * 0.01
+            for _ in range(n_aim_actors)
+        ]
+
+        # Legacy compatibility: keep w_actor_continuous_mu pointing to first aim actor
+        self.w_actor_continuous_mu = self.w_aim_actors[0] if n_aim_actors > 0 else np.random.randn(n_features) * 0.01
 
         # Experience buffer
         self.buffer: List[tuple] = []
 
-    def get_action(self, observation: np.ndarray) -> Tuple[int, float, float, float, float, np.ndarray]:
+    def get_action(self, observation: np.ndarray) -> Tuple[int, List[float], float, List[float], float, np.ndarray]:
         """
         Select an action given the current observation.
 
@@ -69,10 +97,10 @@ class HybridPPOAgent:
 
         Returns:
             Tuple of:
-                - action_discrete: Selected discrete action index
-                - action_continuous: Continuous action value
+                - action_discrete: Selected discrete action index (0-5)
+                - aim_values: List of aim values for each actor
                 - prob_discrete: Probability of selected discrete action
-                - mu: Mean of continuous action distribution
+                - mus: List of mu values for each aim actor
                 - value: Estimated state value
                 - logits: Raw discrete logits (for gradient computation)
         """
@@ -81,23 +109,43 @@ class HybridPPOAgent:
         probs_discrete, scores, sum_scores, logits_saved = squared_prob(logits)
         action_discrete = np.random.choice(len(probs_discrete), p=probs_discrete)
 
-        # Continuous action selection
-        mu = np.dot(self.w_actor_continuous_mu, observation)
-        action_continuous = np.random.normal(mu, self.sigma)
+        # Compute aim values for all actors
+        mus = []
+        aim_values = []
+        for i in range(self.n_aim_actors):
+            mu = np.dot(self.w_aim_actors[i], observation)
+            mus.append(mu)
+            aim_values.append(np.random.normal(mu, self.sigma))
 
         # Value estimation
         value = np.dot(self.w_critic, observation)
 
         return (
             action_discrete,
-            action_continuous,
+            aim_values,
             probs_discrete[action_discrete],
-            mu,
+            mus,
             value,
             logits_saved
         )
 
-    def get_action_deterministic(self, observation: np.ndarray) -> Tuple[int, float]:
+    def get_aim_value_for_action(self, action_discrete: int, aim_values: List[float]) -> float:
+        """
+        Get the relevant aim value for a given discrete action.
+
+        Args:
+            action_discrete: The discrete action (0-5)
+            aim_values: List of aim values from all actors
+
+        Returns:
+            The aim value to use (0.0 if action doesn't need aiming)
+        """
+        actor_idx = self.SKILL_TO_AIM_ACTOR.get(action_discrete, -1)
+        if actor_idx >= 0 and actor_idx < len(aim_values):
+            return aim_values[actor_idx]
+        return 0.0
+
+    def get_action_deterministic(self, observation: np.ndarray) -> Tuple[int, List[float]]:
         """
         Select action deterministically (for evaluation).
 
@@ -105,21 +153,22 @@ class HybridPPOAgent:
             observation: Feature vector
 
         Returns:
-            Tuple of (discrete_action, continuous_action)
+            Tuple of (discrete_action, aim_values)
         """
         logits = np.dot(self.w_actor_discrete, observation)
         probs_discrete, _, _, _ = squared_prob(logits)
         action_discrete = np.argmax(probs_discrete)
 
-        mu = np.dot(self.w_actor_continuous_mu, observation)
-        return action_discrete, mu
+        # Get mu for each aim actor
+        aim_values = [np.dot(self.w_aim_actors[i], observation) for i in range(self.n_aim_actors)]
+        return action_discrete, aim_values
 
     def store_transition(self, transition: tuple) -> None:
         """
         Store a transition in the experience buffer.
 
         Args:
-            transition: Tuple of (obs, a_d, a_c, prob_d, mu, value, logits, reward)
+            transition: Tuple of (obs, a_d, aim_values, prob_d, mus, value, logits, reward)
         """
         self.buffer.append(transition)
 
@@ -134,15 +183,15 @@ class HybridPPOAgent:
 
         Args:
             lr_actor_discrete: Learning rate for discrete actor
-            lr_actor_continuous: Learning rate for continuous actor
+            lr_actor_continuous: Learning rate for continuous actors
             lr_critic: Learning rate for critic
         """
         if not self.buffer:
             return
 
         # Unpack buffer
-        (states, a_discretes, a_continuouses, old_probs_discrete,
-         old_mus, values, old_logits_list, rewards) = zip(*self.buffer)
+        (states, a_discretes, aim_values_list, old_probs_discrete,
+         old_mus_list, values, old_logits_list, rewards) = zip(*self.buffer)
 
         # Compute GAE advantages
         advantages = self._compute_gae(rewards, values)
@@ -152,10 +201,10 @@ class HybridPPOAgent:
         for i in range(len(self.buffer)):
             state = states[i]
             a_d = a_discretes[i]
-            a_c = a_continuouses[i]
+            aim_values = aim_values_list[i]
             target_v = returns[i]
             old_prob_d = old_probs_discrete[i]
-            old_mu = old_mus[i]
+            old_mus = old_mus_list[i]
             adv = advantages[i]
 
             # Update critic
@@ -164,8 +213,13 @@ class HybridPPOAgent:
             # Update discrete actor
             self._update_actor_discrete(state, a_d, old_prob_d, adv, lr_actor_discrete)
 
-            # Update continuous actor
-            self._update_actor_continuous(state, a_c, old_mu, adv, lr_actor_continuous)
+            # Update all aim actors
+            for actor_idx in range(self.n_aim_actors):
+                if actor_idx < len(aim_values) and actor_idx < len(old_mus):
+                    self._update_aim_actor(
+                        state, aim_values[actor_idx], old_mus[actor_idx],
+                        adv, lr_actor_continuous, actor_idx
+                    )
 
         # Decay exploration
         self.sigma = max(self.sigma * self.sigma_decay, self.sigma_min)
@@ -222,12 +276,15 @@ class HybridPPOAgent:
                     grad_other = -advantage * (2 * logits_new[j] * inv_sum) * state
                     self.w_actor_discrete[j] += lr * grad_other
 
-    def _update_actor_continuous(
+    def _update_aim_actor(
         self, state: np.ndarray, action: float,
-        old_mu: float, advantage: float, lr: float
+        old_mu: float, advantage: float, lr: float, actor_idx: int
     ) -> None:
-        """Update continuous actor weights using PPO clip."""
-        new_mu = np.dot(self.w_actor_continuous_mu, state)
+        """Update aim actor weights using PPO clip."""
+        if actor_idx >= self.n_aim_actors:
+            return
+
+        new_mu = np.dot(self.w_aim_actors[actor_idx], state)
 
         old_log_prob = gaussian_log_prob(action, old_mu, self.sigma)
         new_log_prob = gaussian_log_prob(action, new_mu, self.sigma)
@@ -238,7 +295,14 @@ class HybridPPOAgent:
         if (ratio * advantage <= clipped_ratio * advantage) or \
            (1 - self.epsilon < ratio < 1 + self.epsilon):
             grad = (action - new_mu) / (self.sigma ** 2) * state
-            self.w_actor_continuous_mu += lr * advantage * grad
+            self.w_aim_actors[actor_idx] += lr * advantage * grad
+
+    def _update_actor_continuous(
+        self, state: np.ndarray, action: float,
+        old_mu: float, advantage: float, lr: float
+    ) -> None:
+        """Legacy: Update first continuous actor weights using PPO clip."""
+        self._update_aim_actor(state, action, old_mu, advantage, lr, 0)
 
     def get_weights(self) -> dict:
         """
@@ -249,9 +313,10 @@ class HybridPPOAgent:
         """
         return {
             'w_actor_discrete': self.w_actor_discrete.copy(),
-            'w_actor_continuous_mu': self.w_actor_continuous_mu.copy(),
+            'w_aim_actors': [w.copy() for w in self.w_aim_actors],
             'w_critic': self.w_critic.copy(),
-            'sigma': self.sigma
+            'sigma': self.sigma,
+            'n_aim_actors': self.n_aim_actors
         }
 
     def set_weights(self, weights: dict) -> None:
@@ -263,8 +328,15 @@ class HybridPPOAgent:
         """
         if 'w_actor_discrete' in weights:
             self.w_actor_discrete = np.array(weights['w_actor_discrete'])
-        if 'w_actor_continuous_mu' in weights:
-            self.w_actor_continuous_mu = np.array(weights['w_actor_continuous_mu'])
+        if 'w_aim_actors' in weights:
+            self.w_aim_actors = [np.array(w) for w in weights['w_aim_actors']]
+            # Update legacy pointer
+            if self.w_aim_actors:
+                self.w_actor_continuous_mu = self.w_aim_actors[0]
+        elif 'w_actor_continuous_mu' in weights:
+            # Legacy support: convert old single actor to new format
+            self.w_aim_actors = [np.array(weights['w_actor_continuous_mu'])]
+            self.w_actor_continuous_mu = self.w_aim_actors[0]
         if 'w_critic' in weights:
             self.w_critic = np.array(weights['w_critic'])
         if 'sigma' in weights:

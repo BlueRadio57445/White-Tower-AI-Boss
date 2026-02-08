@@ -4,8 +4,11 @@ Components are pure data containers that can be attached to entities.
 """
 
 from dataclasses import dataclass, field
-from typing import Set, Optional
+from typing import Set, Optional, Dict, Any, TYPE_CHECKING
 import numpy as np
+
+if TYPE_CHECKING:
+    from game.skills import SkillShapeType
 
 
 @dataclass
@@ -107,6 +110,9 @@ class Skills:
         current_skill_range: Range of current skill
         current_skill_angle_tolerance: Angle tolerance of current skill
         current_skill_damage: Damage of current skill
+        current_skill_shape_type: Shape type of current skill (CONE, RING, RECTANGLE, PROJECTILE)
+        current_skill_extra_params: Extra parameters for current skill
+        current_skill_wind_up_total: Total wind-up ticks (for progress calculation)
     """
     wind_up_remaining: int = 0
     aim_angle: float = 0.0
@@ -116,6 +122,9 @@ class Skills:
     current_skill_range: float = 6.0
     current_skill_angle_tolerance: float = 0.4
     current_skill_damage: float = 100.0
+    current_skill_shape_type: Optional[str] = None  # Store as string to avoid circular import
+    current_skill_extra_params: Dict[str, Any] = field(default_factory=dict)
+    current_skill_wind_up_total: int = 4
 
     @property
     def is_casting(self) -> bool:
@@ -134,15 +143,20 @@ class Skills:
         aim_angle: float,
         skill_range: float = 6.0,
         angle_tolerance: float = 0.4,
-        damage: float = 100.0
+        damage: float = 100.0,
+        shape_type: Optional[str] = None,
+        extra_params: Optional[Dict[str, Any]] = None
     ) -> None:
         """Begin casting a skill."""
         self.wind_up_remaining = wind_up_ticks
+        self.current_skill_wind_up_total = wind_up_ticks
         self.aim_angle = aim_angle
         self.current_skill = skill_id
         self.current_skill_range = skill_range
         self.current_skill_angle_tolerance = angle_tolerance
         self.current_skill_damage = damage
+        self.current_skill_shape_type = shape_type or "cone"
+        self.current_skill_extra_params = extra_params or {}
 
     def tick(self) -> bool:
         """

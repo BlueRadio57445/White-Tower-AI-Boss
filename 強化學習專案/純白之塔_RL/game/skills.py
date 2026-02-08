@@ -2,8 +2,9 @@
 Skill system - defines skills, handles casting, wind-up, and damage calculation.
 """
 
-from typing import Dict, List, Optional, Callable, Any, Union, TYPE_CHECKING
+from typing import Dict, List, Optional, Callable, Any, Union, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
+from enum import Enum
 import numpy as np
 
 from core.events import EventBus, GameEvent, EventType
@@ -11,6 +12,14 @@ from game.entity import Entity
 
 if TYPE_CHECKING:
     from game.player import SkillConfig
+
+
+class SkillShapeType(Enum):
+    """技能範圍形狀類型"""
+    CONE = "cone"           # 扇形 (現有 basic_attack)
+    RING = "ring"           # 環形 (外圈刮)
+    RECTANGLE = "rectangle" # 長方形 (鐵錘)
+    PROJECTILE = "projectile" # 投射物 (飛彈)
 
 
 @dataclass
@@ -88,16 +97,22 @@ class SkillExecutor:
     Handles skill casting, wind-up timing, and hit detection.
     """
 
-    def __init__(self, event_bus: EventBus, skill_registry: SkillRegistry):
+    def __init__(self, event_bus: EventBus, skill_registry: SkillRegistry, projectile_manager=None):
         """
         Initialize the skill executor.
 
         Args:
             event_bus: Event bus for skill events
             skill_registry: Registry of skill definitions
+            projectile_manager: Optional projectile manager for missile skills
         """
         self.event_bus = event_bus
         self.skill_registry = skill_registry
+        self.projectile_manager = projectile_manager
+
+    def set_projectile_manager(self, projectile_manager) -> None:
+        """Set the projectile manager (called by GameWorld after init)."""
+        self.projectile_manager = projectile_manager
 
     def start_cast(
         self,
@@ -133,6 +148,8 @@ class SkillExecutor:
             skill_range = skill_def.range
             angle_tolerance = skill_def.angle_tolerance
             damage = skill_def.damage
+            shape_type = SkillShapeType.CONE
+            extra_params = {}
         else:
             # New: use SkillConfig directly
             skill_id = skill.skill_id
@@ -140,13 +157,17 @@ class SkillExecutor:
             skill_range = skill.range
             angle_tolerance = skill.angle_tolerance
             damage = skill.damage
+            shape_type = skill.shape_type
+            extra_params = skill.extra_params
 
         aim_angle = caster.position.angle + np.clip(aim_offset, -0.5, 0.5)
         caster.skills.start_cast(
             skill_id, wind_up_ticks, aim_angle,
             skill_range=skill_range,
             angle_tolerance=angle_tolerance,
-            damage=damage
+            damage=damage,
+            shape_type=shape_type.value,
+            extra_params=extra_params
         )
 
         self.event_bus.publish(GameEvent(
@@ -155,7 +176,8 @@ class SkillExecutor:
             data={
                 'skill_id': skill_id,
                 'aim_angle': aim_angle,
-                'wind_up_ticks': wind_up_ticks
+                'wind_up_ticks': wind_up_ticks,
+                'shape_type': shape_type.value
             }
         ))
 
@@ -176,43 +198,58 @@ class SkillExecutor:
             return None
 
         # Read skill parameters BEFORE tick() clears them
-        skill_id = caster.skills.current_skill or "basic_attack"
+        skill_id = caster.skills.current_skill or "outer_slash"
         skill_range = caster.skills.current_skill_range
         angle_tolerance = caster.skills.current_skill_angle_tolerance
         damage = caster.skills.current_skill_damage
+        shape_type_str = caster.skills.current_skill_shape_type or "cone"
+        extra_params = caster.skills.current_skill_extra_params or {}
 
         completed = caster.skills.tick()
 
         if not completed:
             return None
 
-        # Find hit targets using stored parameters
-        hit_target = self._check_hit(caster, targets, skill_range, angle_tolerance)
+        # Convert shape type string to enum
+        shape_type = SkillShapeType(shape_type_str)
 
-        if hit_target is not None:
+        # Handle projectile skills differently
+        if shape_type == SkillShapeType.PROJECTILE:
+            return self._handle_projectile_skill(caster, skill_id, damage, extra_params)
+
+        # Find hit targets based on shape type
+        hit_results = self._check_hit_by_shape(
+            caster, targets, skill_range, angle_tolerance,
+            damage, shape_type, extra_params
+        )
+
+        if hit_results:
+            # Apply damage to all hit targets
+            for hit_target, hit_damage in hit_results:
+                if hit_target.has_health():
+                    hit_target.health.damage(hit_damage)
+
+                    if not hit_target.health.is_alive:
+                        hit_target.despawn()
+                        self.event_bus.publish(GameEvent(
+                            EventType.ENTITY_KILLED,
+                            source_entity=caster,
+                            target_entity=hit_target,
+                            data={'skill_id': skill_id}
+                        ))
+
+            # Return event for first hit target
+            first_target = hit_results[0][0]
             event = GameEvent(
                 EventType.SKILL_CAST_COMPLETE,
                 source_entity=caster,
-                target_entity=hit_target,
+                target_entity=first_target,
                 data={
                     'skill_id': skill_id,
-                    'damage': damage
+                    'damage': damage,
+                    'hit_count': len(hit_results)
                 }
             )
-
-            # Apply damage if target has health
-            if hit_target.has_health():
-                hit_target.health.damage(damage)
-
-                if not hit_target.health.is_alive:
-                    hit_target.despawn()
-                    self.event_bus.publish(GameEvent(
-                        EventType.ENTITY_KILLED,
-                        source_entity=caster,
-                        target_entity=hit_target,
-                        data={'skill_id': skill_id}
-                    ))
-
             self.event_bus.publish(event)
             return event
         else:
@@ -224,7 +261,78 @@ class SkillExecutor:
             self.event_bus.publish(event)
             return event
 
-    def _check_hit(
+    def _handle_projectile_skill(
+        self,
+        caster: Entity,
+        skill_id: str,
+        damage: float,
+        extra_params: Dict[str, Any]
+    ) -> GameEvent:
+        """Handle projectile skill completion by spawning a projectile."""
+        if self.projectile_manager is None:
+            # No projectile manager, return miss
+            event = GameEvent(
+                EventType.SKILL_MISSED,
+                source_entity=caster,
+                data={'skill_id': skill_id, 'reason': 'no_projectile_manager'}
+            )
+            self.event_bus.publish(event)
+            return event
+
+        from game.projectile import ProjectileType
+
+        aim_angle = caster.skills.aim_angle
+        caster_pos = caster.position.as_array()
+
+        # Calculate direction from aim angle
+        direction = np.array([np.cos(aim_angle), np.sin(aim_angle)])
+
+        # Spawn projectile - hit detection will be done by ProjectileManager
+        # Do NOT publish SKILL_CAST_COMPLETE here - reward is given when projectile hits
+        self.projectile_manager.spawn_projectile(
+            position=caster_pos,
+            direction=direction,
+            owner_id=caster.id,
+            projectile_type=ProjectileType.SKILL_MISSILE,
+            damage_override=damage
+        )
+
+        # Return a projectile spawned event (no reward)
+        event = GameEvent(
+            EventType.PROJECTILE_SPAWNED,
+            source_entity=caster,
+            data={'skill_id': skill_id, 'projectile_spawned': True}
+        )
+        # Don't publish here - already published by projectile_manager
+        return event
+
+    def _check_hit_by_shape(
+        self,
+        caster: Entity,
+        targets: List[Entity],
+        skill_range: float,
+        angle_tolerance: float,
+        base_damage: float,
+        shape_type: SkillShapeType,
+        extra_params: Dict[str, Any]
+    ) -> List[Tuple[Entity, float]]:
+        """
+        Check hits based on skill shape type.
+
+        Returns:
+            List of (target, damage) tuples for all hit targets
+        """
+        if shape_type == SkillShapeType.CONE:
+            hit = self._check_cone_hit(caster, targets, skill_range, angle_tolerance)
+            return [(hit, base_damage)] if hit else []
+        elif shape_type == SkillShapeType.RING:
+            return self._check_ring_hit(caster, targets, extra_params, base_damage)
+        elif shape_type == SkillShapeType.RECTANGLE:
+            return self._check_rectangle_hit(caster, targets, extra_params, base_damage)
+        else:
+            return []
+
+    def _check_cone_hit(
         self,
         caster: Entity,
         targets: List[Entity],
@@ -232,7 +340,7 @@ class SkillExecutor:
         angle_tolerance: float
     ) -> Optional[Entity]:
         """
-        Check if skill hits any target.
+        Check if cone skill hits any target (legacy method).
 
         Args:
             caster: The casting entity
@@ -273,6 +381,107 @@ class SkillExecutor:
                 return target
 
         return None
+
+    def _check_ring_hit(
+        self,
+        caster: Entity,
+        targets: List[Entity],
+        extra_params: Dict[str, Any],
+        base_damage: float
+    ) -> List[Tuple[Entity, float]]:
+        """
+        Check if ring (annulus) skill hits any targets.
+        Hits all targets within inner_radius <= distance <= outer_radius.
+
+        Args:
+            caster: The casting entity
+            targets: Potential targets
+            extra_params: Contains inner_radius and outer_radius
+            base_damage: Base damage to deal
+
+        Returns:
+            List of (target, damage) tuples
+        """
+        if not caster.has_position():
+            return []
+
+        inner_radius = extra_params.get("inner_radius", 3.0)
+        outer_radius = extra_params.get("outer_radius", 4.5)
+        caster_pos = caster.position.as_array()
+
+        hit_results = []
+        for target in targets:
+            if not target.is_alive or not target.has_position():
+                continue
+
+            if not target.has_tag("targetable"):
+                continue
+
+            target_pos = target.position.as_array()
+            distance = np.linalg.norm(target_pos - caster_pos)
+
+            if inner_radius <= distance <= outer_radius:
+                hit_results.append((target, base_damage))
+
+        return hit_results
+
+    def _check_rectangle_hit(
+        self,
+        caster: Entity,
+        targets: List[Entity],
+        extra_params: Dict[str, Any],
+        base_damage: float
+    ) -> List[Tuple[Entity, float]]:
+        """
+        Check if rectangle skill hits any targets.
+        Deals more damage at the tip (far end) of the rectangle.
+
+        Args:
+            caster: The casting entity
+            targets: Potential targets
+            extra_params: Contains length, width, tip_range_start, tip_damage
+            base_damage: Base damage to deal
+
+        Returns:
+            List of (target, damage) tuples
+        """
+        if not caster.has_position() or not caster.has_skills():
+            return []
+
+        length = extra_params.get("length", 5.0)
+        width = extra_params.get("width", 0.8)
+        tip_start = extra_params.get("tip_range_start", 4.0)
+        tip_damage = extra_params.get("tip_damage", 50.0)
+
+        aim_angle = caster.skills.aim_angle
+        caster_pos = caster.position.as_array()
+
+        # Unit vectors for rectangle coordinate system
+        forward = np.array([np.cos(aim_angle), np.sin(aim_angle)])
+        right = np.array([np.sin(aim_angle), -np.cos(aim_angle)])
+
+        hit_results = []
+        for target in targets:
+            if not target.is_alive or not target.has_position():
+                continue
+
+            if not target.has_tag("targetable"):
+                continue
+
+            target_pos = target.position.as_array()
+            diff = target_pos - caster_pos
+
+            # Project onto rectangle axes
+            forward_dist = np.dot(diff, forward)
+            right_dist = np.dot(diff, right)
+
+            # Check if within rectangle
+            if 0 < forward_dist <= length and abs(right_dist) <= width / 2:
+                # Determine damage based on position
+                damage = tip_damage if forward_dist >= tip_start else base_damage
+                hit_results.append((target, damage))
+
+        return hit_results
 
     def process_casting_entity(self, caster: Entity,
                                targets: List[Entity]) -> Optional[GameEvent]:

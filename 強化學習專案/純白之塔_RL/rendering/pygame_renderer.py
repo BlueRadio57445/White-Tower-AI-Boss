@@ -30,6 +30,14 @@ COLORS = {
     'arrow': (139, 90, 43),           # Brown for arrows
     'magic_bolt': (180, 100, 255),    # Purple for magic bolts
     'magic_glow': (200, 150, 255, 100),  # Light purple glow
+    # New skill colors
+    'ring_outer': (255, 100, 100, 60),    # Red outer ring
+    'ring_inner': (255, 200, 100, 40),    # Orange inner boundary
+    'rectangle': (100, 200, 255, 60),     # Blue rectangle
+    'rectangle_tip': (255, 100, 100, 80), # Red tip zone
+    'missile_aim': (180, 100, 255),       # Purple aim line
+    'skill_missile': (100, 200, 255),     # Cyan for skill missile
+    'skill_missile_glow': (150, 220, 255, 100),  # Cyan glow
 }
 
 
@@ -298,7 +306,7 @@ class PygameRenderer:
 
     def draw_skill_indicator(self, world) -> None:
         """
-        Draw skill range indicator (fan shape) and aim line.
+        Draw skill range indicator based on skill shape type.
 
         Args:
             world: GameWorld instance
@@ -313,13 +321,28 @@ class PygameRenderer:
 
         player_pos = self.world_to_screen(world.get_player_position())
         aim_angle = skills.aim_angle
-
-        # Skill parameters (from basic_attack)
-        range_px = self.world_to_screen_length(6.0)
-        tolerance = 0.4  # radians (~23 degrees each side)
+        shape_type = skills.current_skill_shape_type or "cone"
+        extra_params = skills.current_skill_extra_params or {}
 
         # Clear skill surface
         self.skill_surface.fill((0, 0, 0, 0))
+
+        if shape_type == "cone":
+            self._draw_cone_indicator(player_pos, aim_angle, skills)
+        elif shape_type == "ring":
+            self._draw_ring_indicator(player_pos, extra_params)
+        elif shape_type == "rectangle":
+            self._draw_rectangle_indicator(player_pos, aim_angle, extra_params)
+        elif shape_type == "projectile":
+            self._draw_projectile_aim_line(player_pos, aim_angle, extra_params)
+
+        # Blit skill surface onto main screen
+        self.screen.blit(self.skill_surface, (0, 0))
+
+    def _draw_cone_indicator(self, player_pos, aim_angle, skills) -> None:
+        """Draw cone (fan) shaped skill indicator."""
+        range_px = self.world_to_screen_length(skills.current_skill_range)
+        tolerance = skills.current_skill_angle_tolerance
 
         # Draw fan shape using polygon approximation
         start_angle = aim_angle - tolerance
@@ -341,9 +364,6 @@ class PygameRenderer:
             fan_points
         )
 
-        # Blit skill surface onto main screen
-        self.screen.blit(self.skill_surface, (0, 0))
-
         # Draw aim line (center of fan)
         end_x = player_pos[0] + range_px * math.cos(aim_angle)
         end_y = player_pos[1] - range_px * math.sin(aim_angle)
@@ -357,6 +377,131 @@ class PygameRenderer:
             self.screen, COLORS['aim_line'],
             False, fan_points[1:], 1
         )
+
+    def _draw_ring_indicator(self, player_pos, extra_params) -> None:
+        """Draw ring (annulus) shaped skill indicator."""
+        inner_radius = extra_params.get("inner_radius", 3.0)
+        outer_radius = extra_params.get("outer_radius", 4.5)
+
+        inner_px = self.world_to_screen_length(inner_radius)
+        outer_px = self.world_to_screen_length(outer_radius)
+
+        # Draw outer circle (filled)
+        pygame.draw.circle(
+            self.skill_surface,
+            COLORS['ring_outer'],
+            player_pos,
+            outer_px
+        )
+
+        # Draw inner circle (cut out by filling with transparent)
+        # Since we can't truly cut out, we'll draw the inner circle in a different color
+        pygame.draw.circle(
+            self.skill_surface,
+            (0, 0, 0, 0),  # Transparent
+            player_pos,
+            inner_px
+        )
+
+        # Draw circle outlines on main screen
+        pygame.draw.circle(
+            self.screen, (255, 100, 100),
+            player_pos, outer_px, 2
+        )
+        pygame.draw.circle(
+            self.screen, (255, 200, 100),
+            player_pos, inner_px, 2
+        )
+
+    def _draw_rectangle_indicator(self, player_pos, aim_angle, extra_params) -> None:
+        """Draw rectangle shaped skill indicator with highlighted tip zone."""
+        length = extra_params.get("length", 5.0)
+        width = extra_params.get("width", 0.8)
+        tip_start = extra_params.get("tip_range_start", 4.0)
+
+        length_px = self.world_to_screen_length(length)
+        width_px = self.world_to_screen_length(width)
+        tip_start_px = self.world_to_screen_length(tip_start)
+
+        # Calculate rectangle corners
+        forward = (math.cos(aim_angle), -math.sin(aim_angle))  # Y inverted
+        right = (math.sin(aim_angle), math.cos(aim_angle))     # Y inverted
+
+        # Base rectangle corners (from player to length)
+        corners = [
+            (player_pos[0] - right[0] * width_px / 2,
+             player_pos[1] - right[1] * width_px / 2),
+            (player_pos[0] + right[0] * width_px / 2,
+             player_pos[1] + right[1] * width_px / 2),
+            (player_pos[0] + forward[0] * length_px + right[0] * width_px / 2,
+             player_pos[1] + forward[1] * length_px + right[1] * width_px / 2),
+            (player_pos[0] + forward[0] * length_px - right[0] * width_px / 2,
+             player_pos[1] + forward[1] * length_px - right[1] * width_px / 2),
+        ]
+
+        # Draw base rectangle
+        pygame.draw.polygon(
+            self.skill_surface,
+            COLORS['rectangle'],
+            corners
+        )
+
+        # Draw tip zone (highlighted area at end)
+        tip_corners = [
+            (player_pos[0] + forward[0] * tip_start_px - right[0] * width_px / 2,
+             player_pos[1] + forward[1] * tip_start_px - right[1] * width_px / 2),
+            (player_pos[0] + forward[0] * tip_start_px + right[0] * width_px / 2,
+             player_pos[1] + forward[1] * tip_start_px + right[1] * width_px / 2),
+            (player_pos[0] + forward[0] * length_px + right[0] * width_px / 2,
+             player_pos[1] + forward[1] * length_px + right[1] * width_px / 2),
+            (player_pos[0] + forward[0] * length_px - right[0] * width_px / 2,
+             player_pos[1] + forward[1] * length_px - right[1] * width_px / 2),
+        ]
+
+        pygame.draw.polygon(
+            self.skill_surface,
+            COLORS['rectangle_tip'],
+            tip_corners
+        )
+
+        # Draw outline on main screen
+        pygame.draw.polygon(
+            self.screen, (100, 200, 255),
+            corners, 2
+        )
+
+        # Draw aim line
+        end_x = player_pos[0] + forward[0] * length_px
+        end_y = player_pos[1] + forward[1] * length_px
+        pygame.draw.line(
+            self.screen, COLORS['aim_line'],
+            player_pos, (end_x, end_y), 2
+        )
+
+    def _draw_projectile_aim_line(self, player_pos, aim_angle, extra_params) -> None:
+        """Draw projectile aim line."""
+        max_range = extra_params.get("max_range", 15.0)
+        range_px = self.world_to_screen_length(max_range)
+
+        # Draw aim line
+        end_x = player_pos[0] + range_px * math.cos(aim_angle)
+        end_y = player_pos[1] - range_px * math.sin(aim_angle)  # Y inverted
+
+        pygame.draw.line(
+            self.screen, COLORS['missile_aim'],
+            player_pos, (end_x, end_y), 2
+        )
+
+        # Draw dashed line effect (small circles along the path)
+        num_dots = 10
+        for i in range(num_dots):
+            t = (i + 1) / num_dots
+            dot_x = player_pos[0] + range_px * t * math.cos(aim_angle)
+            dot_y = player_pos[1] - range_px * t * math.sin(aim_angle)
+            pygame.draw.circle(
+                self.screen, COLORS['missile_aim'],
+                (int(dot_x), int(dot_y)), 3
+            )
 
     def draw_casting_bar(self, world) -> None:
         """
@@ -373,9 +518,8 @@ class PygameRenderer:
         if not skills.is_casting:
             return
 
-        # Calculate progress (wind_up_remaining decreases from 4 to 0)
-        # Progress is (4 - remaining) / 4
-        total_ticks = 4  # wind_up_ticks for basic_attack
+        # Calculate progress using stored total wind_up ticks
+        total_ticks = skills.current_skill_wind_up_total or 4
         progress = (total_ticks - skills.wind_up_remaining) / total_ticks
 
         # Bar dimensions
@@ -430,8 +574,10 @@ class PygameRenderer:
 
             if proj.projectile_type == ProjectileType.ARROW:
                 self._draw_arrow(screen_pos, direction)
-            else:  # MAGIC_BOLT
+            elif proj.projectile_type == ProjectileType.MAGIC_BOLT:
                 self._draw_magic_bolt(screen_pos)
+            elif proj.projectile_type == ProjectileType.SKILL_MISSILE:
+                self._draw_skill_missile(screen_pos, direction)
 
     def _draw_arrow(self, pos: Tuple[int, int], direction) -> None:
         """Draw an arrow projectile."""
@@ -495,6 +641,43 @@ class PygameRenderer:
             pos, 2
         )
 
+    def _draw_skill_missile(self, pos: Tuple[int, int], direction) -> None:
+        """Draw a skill missile projectile with glow effect."""
+        # Draw glow (larger circle, semi-transparent)
+        glow_radius = 12
+        glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(
+            glow_surface,
+            COLORS['skill_missile_glow'],
+            (glow_radius, glow_radius),
+            glow_radius
+        )
+        self.screen.blit(
+            glow_surface,
+            (pos[0] - glow_radius, pos[1] - glow_radius)
+        )
+
+        # Draw core (elongated in direction of travel)
+        angle = math.atan2(direction[1], direction[0])
+        core_length = 8
+        core_width = 4
+
+        # Calculate tail position
+        tail_x = pos[0] - core_length * math.cos(angle)
+        tail_y = pos[1] + core_length * math.sin(angle)  # Y inverted
+
+        # Draw elongated core
+        pygame.draw.line(
+            self.screen, COLORS['skill_missile'],
+            (tail_x, tail_y), pos, core_width
+        )
+
+        # Draw bright center
+        pygame.draw.circle(
+            self.screen, (200, 255, 255),
+            pos, 4
+        )
+
     def draw_info_panel(
         self,
         epoch: int,
@@ -518,7 +701,7 @@ class PygameRenderer:
             action_names: List of action names
         """
         if action_names is None:
-            action_names = ["MOVE", "LEFT", "RIGHT", "CAST"]
+            action_names = ["MOVE", "LEFT", "RIGHT", "外圈刮", "飛彈", "鐵錘"]
 
         # Top info bar
         info_y = 10

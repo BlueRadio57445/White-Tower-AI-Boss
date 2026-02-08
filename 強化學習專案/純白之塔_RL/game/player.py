@@ -5,11 +5,12 @@ Separates player-specific attributes (speed, skills) from the game world,
 providing a clean interface: Agent -> Player -> World
 """
 
-from typing import Dict, Optional, TYPE_CHECKING
+from typing import Dict, Optional, List, TYPE_CHECKING
 from dataclasses import dataclass, field
 
 from game.entity import Entity, EntityFactory
 from game.components import Position, Health, Skills
+from game.skills import SkillShapeType
 
 if TYPE_CHECKING:
     from game.physics import PhysicsSystem
@@ -37,15 +38,20 @@ class SkillConfig:
 
     # Aiming
     requires_aim: bool = False            # Needs aim input
-    aim_actor_count: int = 0              # Number of aim actors (0-2)
+    aim_actor_index: int = -1             # Index of aim actor (-1 = no aim, 0 = aim_missile, 1 = aim_hammer)
 
     # Damage/Range (basic parameters)
     damage: float = 100.0
     range: float = 6.0
     angle_tolerance: float = 0.4          # For simple cone/line skills
 
+    # Shape type
+    shape_type: SkillShapeType = SkillShapeType.CONE
+
     # Extra parameters for special skills
-    # e.g., {"inner_radius": 3.0, "outer_radius": 4.5} for ring AOE
+    # RING: {"inner_radius": 3.0, "outer_radius": 4.5}
+    # RECTANGLE: {"length": 5.0, "width": 0.8, "tip_range_start": 4.0, "tip_damage": 50.0}
+    # PROJECTILE: {"speed": 1.5, "radius": 0.5, "max_range": 15.0}
     extra_params: Dict[str, float] = field(default_factory=dict)
 
 
@@ -68,21 +74,59 @@ class PlayerConfig:
     skills: Dict[str, SkillConfig] = field(default_factory=dict)
 
     def __post_init__(self):
-        """Add default skill if none provided."""
+        """Add default skills if none provided."""
         if not self.skills:
             self.skills = {
-                "basic_attack": SkillConfig(
-                    skill_id="basic_attack",
-                    name="Basic Attack",
-                    cooldown_ticks=0,  # No cooldown for basic attack
-                    wind_up_ticks=4,
+                # Action 3: 外圈刮 (Outer Slash) - 環形 AOE，不需要瞄準
+                "outer_slash": SkillConfig(
+                    skill_id="outer_slash",
+                    name="外圈刮",
+                    cooldown_ticks=30,
+                    wind_up_ticks=5,
+                    can_move_during_wind_up=True,
+                    requires_aim=False,
+                    aim_actor_index=-1,
+                    damage=30.0,
+                    range=4.5,  # outer_radius
+                    angle_tolerance=0.0,  # Not used for ring
+                    shape_type=SkillShapeType.RING,
+                    extra_params={"inner_radius": 3.0, "outer_radius": 4.5}
+                ),
+                # Action 4: 飛彈 (Missile) - 投射物，使用 aim_actor 0
+                "missile": SkillConfig(
+                    skill_id="missile",
+                    name="飛彈",
+                    cooldown_ticks=25,
+                    wind_up_ticks=5,
                     can_move_during_wind_up=False,
                     requires_aim=True,
-                    aim_actor_count=1,
-                    damage=100.0,
-                    range=6.0,
-                    angle_tolerance=0.4
-                )
+                    aim_actor_index=0,  # Uses aim_missile actor
+                    damage=40.0,
+                    range=15.0,  # max_range
+                    angle_tolerance=0.0,  # Not used for projectile
+                    shape_type=SkillShapeType.PROJECTILE,
+                    extra_params={"speed": 1.5, "radius": 0.5, "max_range": 15.0}
+                ),
+                # Action 5: 鐵錘 (Hammer) - 長方形範圍，使用 aim_actor 1
+                "hammer": SkillConfig(
+                    skill_id="hammer",
+                    name="鐵錘",
+                    cooldown_ticks=35,
+                    wind_up_ticks=5,
+                    can_move_during_wind_up=True,
+                    requires_aim=True,
+                    aim_actor_index=1,  # Uses aim_hammer actor
+                    damage=25.0,
+                    range=5.0,  # length
+                    angle_tolerance=0.0,  # Not used for rectangle
+                    shape_type=SkillShapeType.RECTANGLE,
+                    extra_params={
+                        "length": 5.0,
+                        "width": 0.8,
+                        "tip_range_start": 4.0,
+                        "tip_damage": 50.0
+                    }
+                ),
             }
 
 
@@ -209,10 +253,17 @@ class Player:
 
         return self.entity
 
+    # Mapping from discrete action to skill ID
+    SKILL_ACTION_MAP = {
+        3: "outer_slash",  # 外圈刮
+        4: "missile",      # 飛彈
+        5: "hammer",       # 鐵錘
+    }
+
     def execute_action(
         self,
         action_discrete: int,
-        action_continuous: float,
+        aim_values: List[float],
         physics: 'PhysicsSystem',
         skill_executor: 'SkillExecutor'
     ) -> str:
@@ -220,8 +271,8 @@ class Player:
         Execute a player action.
 
         Args:
-            action_discrete: 0=forward, 1=left, 2=right, 3=cast
-            action_continuous: Aim offset (only used for casting)
+            action_discrete: 0=forward, 1=left, 2=right, 3=outer_slash, 4=missile, 5=hammer
+            aim_values: List of aim values for each aim actor
             physics: Physics system for movement
             skill_executor: Skill executor for casting
 
@@ -249,17 +300,23 @@ class Player:
         elif action_discrete == 2:  # Rotate right
             physics.rotate_entity(self.entity, -self.config.turn_speed)
 
-        elif action_discrete == 3:  # Cast skill
+        elif action_discrete in self.SKILL_ACTION_MAP:  # Cast skill (3, 4, 5)
             if self.entity.skills.is_ready:
-                # Use default skill for now
-                skill_config = self.get_skill_config("basic_attack")
+                skill_id = self.SKILL_ACTION_MAP[action_discrete]
+                skill_config = self.get_skill_config(skill_id)
                 if skill_config:
+                    # Get aim offset from the appropriate actor
+                    aim_offset = 0.0
+                    if skill_config.requires_aim and skill_config.aim_actor_index >= 0:
+                        if skill_config.aim_actor_index < len(aim_values):
+                            aim_offset = aim_values[skill_config.aim_actor_index]
+
                     skill_executor.start_cast(
                         self.entity,
                         skill_config,
-                        aim_offset=action_continuous
+                        aim_offset=aim_offset
                     )
-                    event = "CASTING..."
+                    event = f"CASTING {skill_config.name}..."
 
         return event
 

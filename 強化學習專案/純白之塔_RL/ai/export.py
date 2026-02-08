@@ -34,22 +34,24 @@ class WeightExporter:
         export_data: Dict[str, Any] = {
             'weights': {
                 'actor_discrete': weights['w_actor_discrete'].tolist(),
-                'actor_continuous_mu': weights['w_actor_continuous_mu'].tolist(),
+                'aim_actors': [w.tolist() for w in weights['w_aim_actors']],
                 'critic': weights['w_critic'].tolist()
             },
             'parameters': {
                 'sigma': weights['sigma'],
                 'n_features': agent.n_features,
-                'n_discrete_actions': agent.n_discrete_actions
+                'n_discrete_actions': agent.n_discrete_actions,
+                'n_aim_actors': weights.get('n_aim_actors', 2)
             }
         }
 
         if include_metadata:
             export_data['metadata'] = {
-                'format_version': '1.0',
+                'format_version': '2.0',
                 'model_type': 'HybridPPOAgent',
                 'probability_type': 'squared',
-                'description': 'Hardware-friendly PPO with squared probability distribution'
+                'description': 'Hardware-friendly PPO with squared probability distribution',
+                'skill_system': 'Multi-skill with ring, projectile, and rectangle shapes'
             }
 
         # Ensure directory exists
@@ -77,14 +79,18 @@ class WeightExporter:
         # Ensure directory exists
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
+        # Stack aim actors into a single array for easier storage
+        aim_actors_stacked = np.stack(weights['w_aim_actors'])
+
         np.savez(
             path,
             w_actor_discrete=weights['w_actor_discrete'],
-            w_actor_continuous_mu=weights['w_actor_continuous_mu'],
+            w_aim_actors=aim_actors_stacked,
             w_critic=weights['w_critic'],
             sigma=np.array([weights['sigma']]),
             n_features=np.array([agent.n_features]),
-            n_discrete_actions=np.array([agent.n_discrete_actions])
+            n_discrete_actions=np.array([agent.n_discrete_actions]),
+            n_aim_actors=np.array([weights.get('n_aim_actors', 2)])
         )
 
         return path
@@ -103,14 +109,26 @@ class WeightExporter:
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        return {
-            'w_actor_discrete': np.array(data['weights']['actor_discrete']),
-            'w_actor_continuous_mu': np.array(data['weights']['actor_continuous_mu']),
-            'w_critic': np.array(data['weights']['critic']),
-            'sigma': data['parameters']['sigma'],
-            'n_features': data['parameters']['n_features'],
-            'n_discrete_actions': data['parameters']['n_discrete_actions']
+        weights = data['weights']
+        params = data['parameters']
+
+        result = {
+            'w_actor_discrete': np.array(weights['actor_discrete']),
+            'w_critic': np.array(weights['critic']),
+            'sigma': params['sigma'],
+            'n_features': params['n_features'],
+            'n_discrete_actions': params['n_discrete_actions']
         }
+
+        # Handle new format with aim_actors
+        if 'aim_actors' in weights:
+            result['w_aim_actors'] = [np.array(w) for w in weights['aim_actors']]
+            result['n_aim_actors'] = params.get('n_aim_actors', len(weights['aim_actors']))
+        # Handle legacy format with actor_continuous_mu
+        elif 'actor_continuous_mu' in weights:
+            result['w_actor_continuous_mu'] = np.array(weights['actor_continuous_mu'])
+
+        return result
 
     @staticmethod
     def from_numpy(path: str) -> Dict[str, Any]:
@@ -125,14 +143,23 @@ class WeightExporter:
         """
         data = np.load(path)
 
-        return {
+        result = {
             'w_actor_discrete': data['w_actor_discrete'],
-            'w_actor_continuous_mu': data['w_actor_continuous_mu'],
             'w_critic': data['w_critic'],
             'sigma': float(data['sigma'][0]),
             'n_features': int(data['n_features'][0]),
             'n_discrete_actions': int(data['n_discrete_actions'][0])
         }
+
+        # Handle new format with aim_actors
+        if 'w_aim_actors' in data:
+            result['w_aim_actors'] = [data['w_aim_actors'][i] for i in range(len(data['w_aim_actors']))]
+            result['n_aim_actors'] = int(data['n_aim_actors'][0]) if 'n_aim_actors' in data else len(result['w_aim_actors'])
+        # Handle legacy format with actor_continuous_mu
+        elif 'w_actor_continuous_mu' in data:
+            result['w_actor_continuous_mu'] = data['w_actor_continuous_mu']
+
+        return result
 
     @staticmethod
     def load_into_agent(agent: HybridPPOAgent, path: str) -> None:
@@ -170,9 +197,12 @@ class WeightExporter:
         else:
             raise ValueError(f"Unsupported file format: {path}")
 
+        n_aim_actors = weights.get('n_aim_actors', 2)
+
         agent = HybridPPOAgent(
             n_features=weights['n_features'],
-            n_discrete_actions=weights['n_discrete_actions']
+            n_discrete_actions=weights['n_discrete_actions'],
+            n_aim_actors=n_aim_actors
         )
         agent.set_weights(weights)
 

@@ -125,7 +125,7 @@ class DevModeRenderer(PygameRenderer):
 
         # Second line - controls hint
         hint_y = 30
-        hint_text = "W:Forward A:Left D:Right P:Pass 1:Skill ESC:Quit"
+        hint_text = "W:Forward A:Left D:Right P:Pass 1:外圈刮 2:飛彈 3:鐵錘 ESC:Quit"
         hint_surface = self.font_small.render(hint_text, True, (150, 150, 150))
         self.screen.blit(hint_surface, (15, hint_y))
 
@@ -203,7 +203,8 @@ class DevMode:
     """
 
     # Action mappings
-    ACTION_NAMES = ["FORWARD", "LEFT", "RIGHT", "CAST_1", "PASS"]
+    # 0=FORWARD, 1=LEFT, 2=RIGHT, 3=OUTER_SLASH, 4=MISSILE, 5=HAMMER, 6=PASS
+    ACTION_NAMES = ["FORWARD", "LEFT", "RIGHT", "外圈刮", "飛彈", "鐵錘", "PASS"]
 
     def __init__(self, world_size: float = 10.0):
         """
@@ -236,11 +237,13 @@ class DevMode:
         print("  A - Turn left")
         print("  D - Turn right")
         print("  P - Pass (advance tick without action)")
-        print("  1 - Cast skill 1")
-        print("  2 - Cast skill 2 (reserved)")
+        print("  1 - 外圈刮 (Outer Slash) - Ring AOE, no aim needed")
+        print("  2 - 飛彈 (Missile) - Projectile, uses mouse aim")
+        print("  3 - 鐵錘 (Hammer) - Rectangle, uses mouse aim")
+        print("  R - Reset world")
         print("  ESC - Quit")
         print()
-        print("Mouse: Controls aim direction during casting")
+        print("Mouse: Controls aim direction during casting (飛彈/鐵錘)")
         print("=" * 50)
 
         # Reset the world
@@ -310,8 +313,8 @@ class DevMode:
         Wait for keyboard input and return action code.
 
         Returns:
-            Action code (0-4) or None if quit
-            0 = Forward, 1 = Left, 2 = Right, 3 = Cast, 4 = Pass
+            Action code (0-6) or None if quit
+            0 = Forward, 1 = Left, 2 = Right, 3 = Outer Slash, 4 = Missile, 5 = Hammer, 6 = Pass
         """
         while True:
             for event in pygame.event.get():
@@ -330,17 +333,19 @@ class DevMode:
                     elif event.key == pygame.K_d:
                         return 2  # Right
                     elif event.key == pygame.K_1:
-                        return 3  # Cast skill 1
+                        return 3  # Cast 外圈刮 (Outer Slash)
                     elif event.key == pygame.K_2:
-                        return 3  # Cast skill 2 (same as 1 for now)
+                        return 4  # Cast 飛彈 (Missile)
+                    elif event.key == pygame.K_3:
+                        return 5  # Cast 鐵錘 (Hammer)
                     elif event.key == pygame.K_p:
-                        return 4  # Pass
+                        return 6  # Pass
                     elif event.key == pygame.K_r:
                         # Reset world
                         self.world.reset()
                         self.tick_count = 0
                         self.last_event = "WORLD RESET"
-                        return 4  # Pass after reset
+                        return 6  # Pass after reset
 
             # Update display while waiting
             mouse_pos = pygame.mouse.get_pos()
@@ -361,23 +366,32 @@ class DevMode:
         Execute the given action and advance the game tick.
 
         Args:
-            action: Action code (0-4)
+            action: Action code (0-6)
             aim_offset: Aim offset for casting
         """
-        if action == 4:  # Pass
+        if action == 6:  # Pass
             self.last_action = "PASS"
             self.last_event = ""
             self.last_aim_offset = 0.0
         else:
             # Map action to discrete action
-            action_discrete = action  # 0=forward, 1=left, 2=right, 3=cast
-            action_continuous = aim_offset if action == 3 else 0.0
+            action_discrete = action  # 0=forward, 1=left, 2=right, 3-5=skills
+
+            # Build aim_values list based on action
+            # Action 3 (outer_slash): no aim needed
+            # Action 4 (missile): uses aim_actor 0
+            # Action 5 (hammer): uses aim_actor 1
+            aim_values = [0.0, 0.0]  # [aim_missile, aim_hammer]
+            if action == 4:
+                aim_values[0] = aim_offset  # missile uses actor 0
+            elif action == 5:
+                aim_values[1] = aim_offset  # hammer uses actor 1
 
             self.last_action = self.ACTION_NAMES[action]
-            self.last_aim_offset = action_continuous
+            self.last_aim_offset = aim_offset if action in (4, 5) else 0.0
 
             # Execute the action
-            self.last_event = self.world.execute_action(action_discrete, action_continuous)
+            self.last_event = self.world.execute_action(action_discrete, aim_values)
 
         # Advance the game tick
         self.world.tick()

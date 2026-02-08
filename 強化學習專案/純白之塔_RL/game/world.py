@@ -68,9 +68,12 @@ class GameWorld:
         # Initialize systems
         self.physics = PhysicsSystem(self.event_bus, self.room.size)
         self.skill_registry = SkillRegistry()
-        self.skill_executor = SkillExecutor(self.event_bus, self.skill_registry)
+        self.skill_executor = SkillExecutor(self.event_bus, self.skill_registry, projectile_manager=None)
         self.monster_action_executor = MonsterActionExecutor(self.room.size)
         self.projectile_manager = ProjectileManager(self.event_bus, self.room.size)
+
+        # Link skill executor to projectile manager for missile skills
+        self.skill_executor.set_projectile_manager(self.projectile_manager)
 
         # Entity tracking
         self.entities: List[Entity] = []
@@ -286,16 +289,21 @@ class GameWorld:
             ))
 
     def _update_projectiles(self) -> None:
-        """Update all projectiles and handle collisions with player."""
-        if not self.player or not self.player.is_alive:
-            return
+        """Update all projectiles and handle collisions."""
+        player_entity = self.player.entity if self.player and self.player.is_alive else None
 
-        hits = self.projectile_manager.update(self.player.entity)
+        # Pass both player (for monster projectiles) and monsters (for player projectiles)
+        hits = self.projectile_manager.update(player_entity, self.monsters)
 
+        # Process hits on player (from monster projectiles)
         for hit_info in hits:
+            # Skip player skill missiles - damage already handled in ProjectileManager
+            if hit_info["projectile_type"] == ProjectileType.SKILL_MISSILE:
+                continue
+
             damage = hit_info["damage"]
 
-            if self.player.has_health():
+            if self.player and self.player.has_health():
                 self.player.health.damage(damage)
 
                 self.event_bus.publish(GameEvent(
@@ -314,13 +322,13 @@ class GameWorld:
                         data={"source": "projectile"}
                     ))
 
-    def execute_action(self, action_discrete: int, action_continuous: float) -> str:
+    def execute_action(self, action_discrete: int, aim_values) -> str:
         """
         Execute a player action.
 
         Args:
-            action_discrete: 0=forward, 1=left, 2=right, 3=cast
-            action_continuous: Aim offset (only used for casting)
+            action_discrete: 0=forward, 1=left, 2=right, 3=outer_slash, 4=missile, 5=hammer
+            aim_values: List of aim values or single float (for backward compatibility)
 
         Returns:
             Event string describing what happened
@@ -328,9 +336,13 @@ class GameWorld:
         if self.player is None:
             return ""
 
+        # Handle backward compatibility: convert single float to list
+        if isinstance(aim_values, (int, float)):
+            aim_values = [float(aim_values), 0.0]
+
         return self.player.execute_action(
             action_discrete,
-            action_continuous,
+            aim_values,
             self.physics,
             self.skill_executor
         )
