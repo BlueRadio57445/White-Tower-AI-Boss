@@ -18,6 +18,8 @@ Controls:
 - 4: Cast 閃現 (Dash)
 - 5: Cast 靈魂爪 (Soul Claw)
 - 6: Cast 靈魂掌 (Soul Palm)
+- 7: Cast 血池 (Blood Pool)
+- 8: Cast 召喚血包 (Summon Blood Pack)
 - R: Reset world
 - ESC: Quit
 
@@ -210,8 +212,8 @@ class DevMode:
     """
 
     # Action mappings
-    # 0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT, 4=OUTER_SLASH, 5=MISSILE, 6=HAMMER, 7=DASH, 8=SOUL_CLAW, 9=SOUL_PALM, 10=PASS
-    ACTION_NAMES = ["前進", "後退", "左轉", "右轉", "外圈刮", "飛彈", "鐵錘", "閃現", "靈魂爪", "靈魂掌", "PASS"]
+    # 0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT, 4=OUTER_SLASH, 5=MISSILE, 6=HAMMER, 7=DASH, 8=SOUL_CLAW, 9=SOUL_PALM, 10=BLOOD_POOL, 11=SUMMON_PACK, 12=PASS
+    ACTION_NAMES = ["前進", "後退", "左轉", "右轉", "外圈刮", "飛彈", "鐵錘", "閃現", "靈魂爪", "靈魂掌", "血池", "召喚血包", "PASS"]
 
     def __init__(self, world_size: float = 10.0):
         """
@@ -354,14 +356,18 @@ class DevMode:
                         return 8  # Cast 靈魂爪 (Soul Claw)
                     elif event.key == pygame.K_6:
                         return 9  # Cast 靈魂掌 (Soul Palm)
+                    elif event.key == pygame.K_7:
+                        return 10  # Cast 血池 (Blood Pool)
+                    elif event.key == pygame.K_8:
+                        return 11  # Cast 召喚血包 (Summon Blood Pack)
                     elif event.key == pygame.K_p:
-                        return 10  # Pass
+                        return 12  # Pass
                     elif event.key == pygame.K_r:
                         # Reset world
                         self.world.reset()
                         self.tick_count = 0
                         self.last_event = "WORLD RESET"
-                        return 10  # Pass after reset
+                        return 12  # Pass after reset
 
             # Update display while waiting
             mouse_pos = pygame.mouse.get_pos()
@@ -382,16 +388,16 @@ class DevMode:
         Execute the given action and advance the game tick.
 
         Args:
-            action: Action code (0-10)
+            action: Action code (0-12)
             aim_offset: Aim offset for casting
         """
-        if action == 10:  # Pass
+        if action == 12:  # Pass
             self.last_action = "PASS"
             self.last_event = ""
             self.last_aim_offset = 0.0
         else:
             # Map action to discrete action
-            action_discrete = action  # 0=forward, 1=backward, 2=left, 3=right, 4-9=skills
+            action_discrete = action  # 0=forward, 1=backward, 2=left, 3=right, 4-11=skills
 
             # Build aim_values list based on action
             # Action 4 (outer_slash): no aim needed
@@ -400,6 +406,8 @@ class DevMode:
             # Action 7 (dash): uses aim_actor 2, 3
             # Action 8 (soul_claw): uses aim_actor 4
             # Action 9 (soul_palm): uses aim_actor 5
+            # Action 10 (blood_pool): no aim needed
+            # Action 11 (summon_pack): no aim needed
             aim_values = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 6 aim actors
             if action == 5:
                 aim_values[0] = aim_offset  # missile uses actor 0

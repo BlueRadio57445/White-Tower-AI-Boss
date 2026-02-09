@@ -52,6 +52,9 @@ COLORS = {
     'dash_arrow': (255, 100, 200),        # Pink for dash direction arrow
     'soul_claw': (100, 255, 200, 60),     # Teal for soul claw rectangle
     'soul_palm': (255, 150, 100, 60),     # Orange for soul palm rectangle
+    # Blood pool colors
+    'blood_pool': (150, 0, 0, 120),       # Dark red pool
+    'blood_pool_emerge': (255, 50, 50, 100),  # Bright red emerge warning
 }
 
 
@@ -732,6 +735,59 @@ class PygameRenderer:
                 (bar_x, bar_y, bar_w, bar_height), 1
             )
 
+    def draw_blood_pool_effect(self, world) -> None:
+        """
+        Draw blood pool effect when player is in blood pool state.
+
+        Args:
+            world: GameWorld instance
+        """
+        if not world.player or not world.player.has_skills():
+            return
+
+        if not world.player.skills.in_blood_pool:
+            return
+
+        # Get player position
+        pos = world.get_player_position()
+        screen_pos = self.world_to_screen(pos)
+
+        # Calculate pool radius (scales with remaining time for pulsing effect)
+        remaining = world.player.skills.blood_pool_remaining
+        base_radius = 40
+        pulse = 1.0 + 0.2 * math.sin(remaining * 0.5)  # Pulsing effect
+        radius = int(base_radius * pulse)
+
+        # Draw multiple layers for depth
+        # Outer dark red glow
+        temp_surface = pygame.Surface((radius * 2 + 20, radius * 2 + 20), pygame.SRCALPHA)
+        pygame.draw.circle(temp_surface, COLORS['blood_pool'], (radius + 10, radius + 10), radius + 10)
+        self.screen.blit(temp_surface, (screen_pos[0] - radius - 10, screen_pos[1] - radius - 10))
+
+        # Inner brighter circle
+        inner_radius = int(radius * 0.7)
+        temp_surface2 = pygame.Surface((inner_radius * 2, inner_radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(temp_surface2, (180, 0, 0, 150), (inner_radius, inner_radius), inner_radius)
+        self.screen.blit(temp_surface2, (screen_pos[0] - inner_radius, screen_pos[1] - inner_radius))
+
+        # Warning ring when about to emerge (last 3 ticks)
+        if remaining <= 3:
+            emerge_radius = world.player.skills.blood_pool_emerge_radius
+            emerge_radius_px = int(emerge_radius * self.game_area_size / self.world_size)
+
+            # Draw emerge warning ring
+            temp_surface3 = pygame.Surface((emerge_radius_px * 2 + 10, emerge_radius_px * 2 + 10), pygame.SRCALPHA)
+            pygame.draw.circle(temp_surface3, COLORS['blood_pool_emerge'],
+                             (emerge_radius_px + 5, emerge_radius_px + 5), emerge_radius_px + 5, 3)
+            self.screen.blit(temp_surface3,
+                           (screen_pos[0] - emerge_radius_px - 5, screen_pos[1] - emerge_radius_px - 5))
+
+        # Draw remaining time text
+        time_text = f"Pool: {remaining}"
+        text_surface = self.font_small.render(time_text, True, (255, 200, 200))
+        text_rect = text_surface.get_rect(center=(screen_pos[0], screen_pos[1] + 50))
+        self.screen.blit(text_surface, text_rect)
+
     def draw_projectiles(self, world) -> None:
         """
         Draw all active projectiles.
@@ -941,6 +997,9 @@ class PygameRenderer:
 
         # Draw skill indicator (before player so it's behind)
         self.draw_skill_indicator(world)
+
+        # Draw blood pool effect (if player is in blood pool)
+        self.draw_blood_pool_effect(world)
 
         # Draw player
         self.draw_player(world)

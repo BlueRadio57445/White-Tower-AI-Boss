@@ -5,7 +5,7 @@ Separates player-specific attributes (speed, skills) from the game world,
 providing a clean interface: Agent -> Player -> World
 """
 
-from typing import Dict, Optional, List, TYPE_CHECKING
+from typing import Dict, Optional, List, Any, TYPE_CHECKING
 from dataclasses import dataclass, field
 import numpy as np
 
@@ -70,7 +70,7 @@ class PlayerConfig:
     turn_speed: float = 0.4
 
     # Health attributes
-    max_health: float = 100.0
+    max_health: float = 500.0
 
     # Skill configurations
     skills: Dict[str, SkillConfig] = field(default_factory=dict)
@@ -183,6 +183,44 @@ class PlayerConfig:
                         "length": 6.0,
                         "width": 2.0,
                         "push_distance": 3.0,
+                    }
+                ),
+                # Action 10: 血池 (Blood Pool) - 沉入血池無敵，蹦出時 AOE 傷害
+                "blood_pool": SkillConfig(
+                    skill_id="blood_pool",
+                    name="血池",
+                    cooldown_ticks=40,
+                    wind_up_ticks=0,  # Instant cast
+                    can_move_during_wind_up=True,  # Can move in pool
+                    requires_aim=False,
+                    aim_actor_index=-1,
+                    damage=35.0,  # Emerge damage
+                    range=2.5,  # Emerge radius
+                    angle_tolerance=0.0,  # Not used
+                    shape_type=SkillShapeType.BLOOD_POOL,
+                    extra_params={
+                        "pool_duration": 15,  # 15 ticks in pool (~3 seconds)
+                        "emerge_damage": 35.0,
+                        "emerge_radius": 2.5,
+                    }
+                ),
+                # Action 11: 召喚血包 (Summon Blood Pack) - 在場地生成血包
+                "summon_pack": SkillConfig(
+                    skill_id="summon_pack",
+                    name="召喚血包",
+                    cooldown_ticks=50,
+                    wind_up_ticks=10,
+                    can_move_during_wind_up=False,
+                    requires_aim=False,
+                    aim_actor_index=-1,
+                    damage=0.0,  # No damage
+                    range=0.0,  # Not used
+                    angle_tolerance=0.0,  # Not used
+                    shape_type=SkillShapeType.SUMMON,
+                    extra_params={
+                        "pack_count": 3,  # Try to spawn 3 packs
+                        "heal_amount": 30.0,
+                        "max_total_packs": 3,  # Maximum 3 packs in world
                     }
                 ),
             }
@@ -319,6 +357,8 @@ class Player:
         7: "dash",         # 閃現
         8: "soul_claw",    # 靈魂爪
         9: "soul_palm",    # 靈魂掌
+        10: "blood_pool",  # 血池
+        11: "summon_pack", # 召喚血包
     }
 
     def execute_action(
@@ -326,16 +366,18 @@ class Player:
         action_discrete: int,
         aim_values: List[float],
         physics: 'PhysicsSystem',
-        skill_executor: 'SkillExecutor'
+        skill_executor: 'SkillExecutor',
+        world: Optional[Any] = None
     ) -> str:
         """
         Execute a player action.
 
         Args:
-            action_discrete: 0=forward, 1=backward, 2=left, 3=right, 4=outer_slash, 5=missile, 6=hammer
+            action_discrete: 0=forward, 1=backward, 2=left, 3=right, 4-11=skills
             aim_values: List of aim values for each aim actor
             physics: Physics system for movement
             skill_executor: Skill executor for casting
+            world: Optional world reference (needed for summon skill)
 
         Returns:
             Event string describing what happened
@@ -392,6 +434,10 @@ class Player:
                             if skill_config.aim_actor_index < len(aim_values):
                                 aim_offset = aim_values[skill_config.aim_actor_index]
 
+                    # For summon skill, add world reference to extra_params
+                    if skill_config.shape_type == SkillShapeType.SUMMON and world is not None:
+                        modified_extra_params["world"] = world
+
                     # Create a modified skill config with updated extra_params if needed
                     if modified_extra_params != skill_config.extra_params:
                         from dataclasses import replace
@@ -438,12 +484,21 @@ class Player:
         action is illegal (will be zeroed out in the agent's logits).
         Skill actions are masked when the player is casting or the skill
         is on cooldown. Movement actions are never masked.
+        Blood pool prevents all actions except movement while in pool.
         """
-        mask = np.ones(10, dtype=np.float32)  # Updated to 10 actions (0-9)
+        mask = np.ones(12, dtype=np.float32)  # Updated to 12 actions (0-11)
         if self.entity is None or not self.entity.has_skills():
             return mask
 
         skills = self.entity.skills
+
+        # If in blood pool, block all skill actions
+        if skills.in_blood_pool:
+            for action in self.SKILL_ACTION_MAP.keys():
+                mask[action] = 0.0
+            return mask
+
+        # Normal masking: block skills on cooldown or while casting
         for action, skill_id in self.SKILL_ACTION_MAP.items():
             if not skills.is_ready or not skills.is_skill_available(skill_id):
                 mask[action] = 0.0

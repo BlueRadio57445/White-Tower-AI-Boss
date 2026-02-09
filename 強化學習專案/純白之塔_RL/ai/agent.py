@@ -20,9 +20,10 @@ class HybridPPOAgent:
     dead neuron problems. Supports both discrete and continuous actions.
 
     Action Space:
-        Discrete (10 actions): 0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT,
+        Discrete (12 actions): 0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT,
                                4=OUTER_SLASH, 5=MISSILE, 6=HAMMER,
-                               7=DASH, 8=SOUL_CLAW, 9=SOUL_PALM
+                               7=DASH, 8=SOUL_CLAW, 9=SOUL_PALM,
+                               10=BLOOD_POOL, 11=SUMMON_PACK
         Continuous (6 actors): aim_missile (0), aim_hammer (1),
                                aim_dash_direction (2), aim_dash_facing (3),
                                aim_claw (4), aim_palm (5)
@@ -34,6 +35,8 @@ class HybridPPOAgent:
         7 (dash): Uses aim_dash_direction (actor 2), aim_dash_facing (actor 3)
         8 (soul_claw): Uses aim_claw (actor 4)
         9 (soul_palm): Uses aim_palm (actor 5)
+        10 (blood_pool): No aim required
+        11 (summon_pack): No aim required
     """
 
     # Skill action to aim actor mapping
@@ -45,12 +48,14 @@ class HybridPPOAgent:
         7: [2, 3],  # dash - aim_dash_direction, aim_dash_facing
         8: 4,   # soul_claw - aim_claw
         9: 5,   # soul_palm - aim_palm
+        10: -1, # blood_pool - no aim
+        11: -1, # summon_pack - no aim
     }
 
     def __init__(
         self,
         n_features: int,
-        n_discrete_actions: int = 10,
+        n_discrete_actions: int = 12,
         n_aim_actors: int = 6,
         gamma: float = 0.99,
         lmbda: float = 0.95,
@@ -64,7 +69,7 @@ class HybridPPOAgent:
 
         Args:
             n_features: Number of input features
-            n_discrete_actions: Number of discrete actions (default 10)
+            n_discrete_actions: Number of discrete actions (default 12)
             n_aim_actors: Number of aim actors (default 6)
             gamma: Discount factor
             lmbda: GAE lambda parameter

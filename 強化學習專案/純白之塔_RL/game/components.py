@@ -132,6 +132,12 @@ class Skills:
     # Per-skill cooldown tracking
     skill_cooldowns: Dict[str, int] = field(default_factory=dict)
 
+    # Blood pool state
+    in_blood_pool: bool = False
+    blood_pool_remaining: int = 0
+    blood_pool_emerge_damage: float = 0.0
+    blood_pool_emerge_radius: float = 0.0
+
     @property
     def is_casting(self) -> bool:
         """Check if currently casting a skill (including instant cast skills)."""
@@ -204,6 +210,36 @@ class Skills:
     def is_skill_available(self, skill_id: str) -> bool:
         """Check if a skill is off cooldown and can be cast."""
         return self.skill_cooldowns.get(skill_id, 0) == 0
+
+    def enter_blood_pool(self, duration: int, emerge_damage: float, emerge_radius: float) -> None:
+        """
+        Enter blood pool state (invulnerable, can move).
+
+        Args:
+            duration: Ticks to remain in blood pool
+            emerge_damage: Damage dealt when emerging
+            emerge_radius: Radius of emerge damage
+        """
+        self.in_blood_pool = True
+        self.blood_pool_remaining = duration
+        self.blood_pool_emerge_damage = emerge_damage
+        self.blood_pool_emerge_radius = emerge_radius
+
+    def tick_blood_pool(self) -> bool:
+        """
+        Tick blood pool timer.
+
+        Returns:
+            True if emerging from blood pool this tick
+        """
+        if not self.in_blood_pool:
+            return False
+
+        self.blood_pool_remaining -= 1
+        if self.blood_pool_remaining <= 0:
+            self.in_blood_pool = False
+            return True  # Emerging!
+        return False
 
 
 @dataclass

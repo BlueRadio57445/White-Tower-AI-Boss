@@ -21,6 +21,8 @@ class SkillShapeType(Enum):
     RECTANGLE = "rectangle" # 長方形 (鐵錘, 靈魂爪, 靈魂掌)
     PROJECTILE = "projectile" # 投射物 (飛彈)
     DASH = "dash"           # 位移 (閃現)
+    BLOOD_POOL = "blood_pool" # 血池 (無敵狀態 + 範圍傷害)
+    SUMMON = "summon"       # 召喚 (生成血包)
 
 
 @dataclass
@@ -225,6 +227,14 @@ class SkillExecutor:
         if shape_type == SkillShapeType.DASH:
             return self._handle_dash_skill(caster, skill_id, extra_params)
 
+        # Handle blood pool skills (invulnerability + AOE damage on emerge)
+        if shape_type == SkillShapeType.BLOOD_POOL:
+            return self._handle_blood_pool_skill(caster, skill_id, extra_params, targets)
+
+        # Handle summon skills (spawn blood packs)
+        if shape_type == SkillShapeType.SUMMON:
+            return self._handle_summon_skill(caster, skill_id, extra_params)
+
         # Find hit targets based on shape type
         hit_results = self._check_hit_by_shape(
             caster, targets, skill_range, angle_tolerance,
@@ -373,6 +383,186 @@ class SkillExecutor:
                 'skill_id': skill_id,
                 'dash_distance': dash_distance,
                 'new_position': new_pos.tolist()
+            }
+        )
+        self.event_bus.publish(event)
+        return event
+
+    def _handle_blood_pool_skill(
+        self,
+        caster: Entity,
+        skill_id: str,
+        extra_params: Dict[str, Any],
+        targets: List[Entity]
+    ) -> GameEvent:
+        """
+        Handle blood pool skill - enter invulnerable state, then emerge with AOE damage.
+
+        Args:
+            caster: The entity casting the skill
+            skill_id: Skill identifier
+            extra_params: Contains pool_duration, emerge_damage, emerge_radius
+            targets: Potential target entities (for emerge damage)
+
+        Returns:
+            Event for blood pool activation or emerge
+        """
+        if not caster.has_skills():
+            event = GameEvent(
+                EventType.SKILL_MISSED,
+                source_entity=caster,
+                data={'skill_id': skill_id, 'reason': 'no_skills_component'}
+            )
+            self.event_bus.publish(event)
+            return event
+
+        pool_duration = int(extra_params.get("pool_duration", 15))
+        emerge_damage = extra_params.get("emerge_damage", 35.0)
+        emerge_radius = extra_params.get("emerge_radius", 2.5)
+
+        # Enter blood pool state
+        caster.skills.enter_blood_pool(pool_duration, emerge_damage, emerge_radius)
+
+        # Publish blood pool entered event
+        event = GameEvent(
+            EventType.SKILL_CAST_COMPLETE,
+            source_entity=caster,
+            data={
+                'skill_id': skill_id,
+                'pool_duration': pool_duration,
+                'state': 'entered_pool'
+            }
+        )
+        self.event_bus.publish(event)
+        return event
+
+    def process_blood_pool_tick(self, caster: Entity, targets: List[Entity]) -> Optional[GameEvent]:
+        """
+        Process blood pool state each tick. Called separately from normal skill tick.
+
+        Args:
+            caster: The entity in blood pool
+            targets: Potential targets for emerge damage
+
+        Returns:
+            Event if emerging from pool, None otherwise
+        """
+        if not caster.has_skills() or not caster.skills.in_blood_pool:
+            return None
+
+        emerging = caster.skills.tick_blood_pool()
+
+        if not emerging:
+            return None
+
+        # Emerging from blood pool - deal AOE damage
+        emerge_damage = caster.skills.blood_pool_emerge_damage
+        emerge_radius = caster.skills.blood_pool_emerge_radius
+        caster_pos = caster.position.as_array() if caster.has_position() else np.array([0, 0])
+
+        hit_results = []
+        for target in targets:
+            if not target.is_alive or not target.has_position():
+                continue
+
+            if not target.has_tag("targetable"):
+                continue
+
+            target_pos = target.position.as_array()
+            distance = np.linalg.norm(target_pos - caster_pos)
+
+            if distance <= emerge_radius:
+                hit_results.append((target, emerge_damage))
+
+        # Apply damage to hit targets
+        for hit_target, damage in hit_results:
+            if hit_target.has_health():
+                hit_target.health.damage(damage)
+
+                if not hit_target.health.is_alive:
+                    hit_target.despawn()
+                    self.event_bus.publish(GameEvent(
+                        EventType.ENTITY_KILLED,
+                        source_entity=caster,
+                        target_entity=hit_target,
+                        data={'skill_id': 'blood_pool'}
+                    ))
+
+        # Publish emerge event
+        event = GameEvent(
+            EventType.SKILL_CAST_COMPLETE,
+            source_entity=caster,
+            data={
+                'skill_id': 'blood_pool',
+                'state': 'emerged',
+                'hit_count': len(hit_results),
+                'damage': emerge_damage
+            }
+        )
+        self.event_bus.publish(event)
+        return event
+
+    def _handle_summon_skill(
+        self,
+        caster: Entity,
+        skill_id: str,
+        extra_params: Dict[str, Any]
+    ) -> GameEvent:
+        """
+        Handle summon skill - spawn blood packs at random positions.
+
+        Args:
+            caster: The entity casting the skill
+            skill_id: Skill identifier
+            extra_params: Contains pack_count, heal_amount, world
+
+        Returns:
+            Event for summon completion
+        """
+        # Get world reference from extra_params (will be passed by GameWorld)
+        world = extra_params.get("world")
+        if world is None:
+            event = GameEvent(
+                EventType.SKILL_MISSED,
+                source_entity=caster,
+                data={'skill_id': skill_id, 'reason': 'no_world_reference'}
+            )
+            self.event_bus.publish(event)
+            return event
+
+        pack_count = int(extra_params.get("pack_count", 3))
+        heal_amount = extra_params.get("heal_amount", 30.0)
+        max_total_packs = int(extra_params.get("max_total_packs", 3))
+
+        # Check current blood pack count
+        current_packs = world.get_blood_pack_count()
+        packs_to_spawn = min(pack_count, max_total_packs - current_packs)
+
+        if packs_to_spawn <= 0:
+            # No room for more packs
+            event = GameEvent(
+                EventType.SKILL_MISSED,
+                source_entity=caster,
+                data={'skill_id': skill_id, 'reason': 'max_packs_reached'}
+            )
+            self.event_bus.publish(event)
+            return event
+
+        # Spawn blood packs at random positions
+        spawned_positions = []
+        for _ in range(packs_to_spawn):
+            position = world.room.random_position()
+            world.spawn_blood_pack(position, heal_amount)
+            spawned_positions.append(position.tolist())
+
+        # Publish summon complete event
+        event = GameEvent(
+            EventType.SKILL_CAST_COMPLETE,
+            source_entity=caster,
+            data={
+                'skill_id': skill_id,
+                'packs_spawned': packs_to_spawn,
+                'positions': spawned_positions
             }
         )
         self.event_bus.publish(event)

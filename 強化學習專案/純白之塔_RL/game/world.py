@@ -152,15 +152,21 @@ class GameWorld:
         self._update_monster_movements()
 
         # Process skill casting for player
-        if self.player and self.player.has_skills() and self.player.skills.is_casting:
-            self.skill_executor.tick(self.player.entity, self.monsters)
+        if self.player and self.player.has_skills():
+            # Process normal skill casting
+            if self.player.skills.is_casting:
+                self.skill_executor.tick(self.player.entity, self.monsters)
+
+            # Process blood pool state separately
+            if self.player.skills.in_blood_pool:
+                self.skill_executor.process_blood_pool_tick(self.player.entity, self.monsters)
 
         # Check item pickups
         if self.player:
             collected = self.physics.check_pickups(self.player.entity, self.items)
             for item in collected:
                 self._process_item_pickup(item)
-                self._respawn_item(item)
+                # Removed automatic respawn - blood packs are now only spawned by summon skill
 
         # Update projectiles and check collisions with player
         self._update_projectiles()
@@ -208,6 +214,10 @@ class GameWorld:
         )
         if not behavior._is_facing_target(angle_diff, tolerance=0.5):
             return
+
+        # Check if player is invulnerable (in blood pool)
+        if self.player.has_skills() and self.player.skills.in_blood_pool:
+            return  # Skip damage when in blood pool
 
         damage = result.get("attack_damage", 0)
 
@@ -262,19 +272,37 @@ class GameWorld:
             if self.player.has_health():
                 self.player.health.heal(heal_amount)
 
-    def _respawn_item(self, item: Entity) -> None:
-        """Respawn a collected item at a random position."""
-        # Create new blood pack
-        new_pos = self.room.random_position()
-        new_item = EntityFactory.create_blood_pack(new_pos[0], new_pos[1])
-        self.items.append(new_item)
-        self.entities.append(new_item)
+    def spawn_blood_pack(self, position: np.ndarray, heal_amount: float = 30.0) -> Entity:
+        """
+        Spawn a blood pack at specified position (used by summon skill).
+
+        Args:
+            position: Position to spawn blood pack
+            heal_amount: Amount of health to restore
+
+        Returns:
+            The created blood pack entity
+        """
+        blood_pack = EntityFactory.create_blood_pack(position[0], position[1], heal_amount)
+        self.items.append(blood_pack)
+        self.entities.append(blood_pack)
 
         self.event_bus.publish(GameEvent(
             EventType.ITEM_SPAWNED,
-            source_entity=new_item,
-            data={'item_type': new_item.entity_type}
+            source_entity=blood_pack,
+            data={'item_type': blood_pack.entity_type}
         ))
+
+        return blood_pack
+
+    def get_blood_pack_count(self) -> int:
+        """
+        Get the number of blood packs currently in the world.
+
+        Returns:
+            Number of alive blood packs
+        """
+        return sum(1 for item in self.items if item.is_alive and item.has_tag("blood_pack"))
 
     def _cleanup_entities(self) -> None:
         """Remove dead entities from tracking lists."""
@@ -304,6 +332,10 @@ class GameWorld:
             # Skip player skill missiles - damage already handled in ProjectileManager
             if hit_info["projectile_type"] == ProjectileType.SKILL_MISSILE:
                 continue
+
+            # Check if player is invulnerable (in blood pool)
+            if self.player and self.player.has_skills() and self.player.skills.in_blood_pool:
+                continue  # Skip damage when in blood pool
 
             damage = hit_info["damage"]
 
@@ -348,7 +380,8 @@ class GameWorld:
             action_discrete,
             aim_values,
             self.physics,
-            self.skill_executor
+            self.skill_executor,
+            world=self  # Pass world reference for summon skill
         )
 
     def get_player_position(self) -> np.ndarray:

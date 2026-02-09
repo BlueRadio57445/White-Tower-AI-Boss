@@ -82,8 +82,22 @@ class RewardCalculator:
 
     def _on_skill_hit(self, event: GameEvent) -> None:
         """Handle successful skill hit event."""
-        self.accumulated_reward += self.rewards[EventType.SKILL_CAST_COMPLETE]
-        self.last_event = "KILLED MONSTER!"
+        # Check if this is a summon_pack skill
+        skill_id = event.data.get('skill_id', '') if event.data else ''
+
+        if skill_id == 'summon_pack':
+            # Special reward for summon: +3.0 per pack spawned
+            packs_spawned = event.data.get('packs_spawned', 0)
+            if packs_spawned > 0:
+                self.accumulated_reward += 3.0 * packs_spawned
+                self.last_event = f"SUMMONED {packs_spawned} PACKS!"
+            else:
+                # No reward if summon failed (hit limit)
+                self.last_event = "SUMMON LIMIT!"
+        else:
+            # Normal skill reward (damage skills)
+            self.accumulated_reward += self.rewards[EventType.SKILL_CAST_COMPLETE]
+            self.last_event = "KILLED MONSTER!"
 
     def _on_skill_missed(self, event: GameEvent) -> None:
         """Handle skill miss event."""
