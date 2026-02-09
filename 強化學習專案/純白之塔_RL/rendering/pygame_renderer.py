@@ -38,6 +38,12 @@ COLORS = {
     'missile_aim': (180, 100, 255),       # Purple aim line
     'skill_missile': (100, 200, 255),     # Cyan for skill missile
     'skill_missile_glow': (150, 220, 255, 100),  # Cyan glow
+    # Skill cooldown bar colors (one per skill slot)
+    'cd_outer_slash': (255, 200, 100),    # Yellow for 外圈刮
+    'cd_missile': (180, 100, 255),        # Purple for 飛彈
+    'cd_hammer': (100, 200, 255),         # Cyan for 鐵錘
+    'cd_ready': (100, 255, 100),          # Green when ready
+    'cd_bg': (35, 35, 35),               # Dark background
 }
 
 
@@ -553,6 +559,83 @@ class PygameRenderer:
         text_rect = text_surface.get_rect(center=(self.width // 2, bar_y + bar_height // 2))
         self.screen.blit(text_surface, text_rect)
 
+    def draw_skill_cooldowns(self, world) -> None:
+        """
+        Draw per-skill cooldown bars below the casting bar.
+
+        Shows skill name, a fill bar (dark=on cooldown, bright=ready),
+        and remaining tick count.
+        """
+        cooldown_info = world.get_skill_cooldown_info()
+        if not cooldown_info:
+            return
+
+        skill_order = ["outer_slash", "missile", "hammer"]
+        skill_colors = [
+            COLORS['cd_outer_slash'],
+            COLORS['cd_missile'],
+            COLORS['cd_hammer'],
+        ]
+
+        # Position: directly below casting bar area
+        section_y = self.margin + self.game_area_size + 42
+        bar_height = 10
+        label_height = 13
+        col_width = self.width // 3
+
+        for i, (skill_id, color) in enumerate(zip(skill_order, skill_colors)):
+            info = cooldown_info.get(skill_id)
+            if info is None:
+                continue
+            remaining, max_cd, name = info
+
+            bar_w = col_width - 20
+            bar_x = col_width * i + 10
+            label_y = section_y
+            bar_y = section_y + label_height
+
+            # Determine display color
+            if remaining == 0:
+                display_color = COLORS['cd_ready']
+                status = "READY"
+            else:
+                display_color = color
+                status = str(remaining)
+
+            # Label
+            label_text = f"{name}  {status}"
+            lbl_surface = self.font_small.render(label_text, True, display_color)
+            self.screen.blit(lbl_surface, (bar_x, label_y))
+
+            # Background bar
+            pygame.draw.rect(
+                self.screen, COLORS['cd_bg'],
+                (bar_x, bar_y, bar_w, bar_height)
+            )
+
+            # Fill bar (cooldown remaining as dark fill, ready portion as bright)
+            if max_cd > 0:
+                ready_frac = 1.0 - remaining / max_cd
+                fill_w = int(bar_w * ready_frac)
+                if remaining == 0:
+                    pygame.draw.rect(
+                        self.screen, COLORS['cd_ready'],
+                        (bar_x, bar_y, bar_w, bar_height)
+                    )
+                elif fill_w > 0:
+                    # Show progress filling from left
+                    dim = tuple(max(0, c - 80) for c in color)
+                    pygame.draw.rect(
+                        self.screen, dim,
+                        (bar_x, bar_y, fill_w, bar_height)
+                    )
+
+            # Border
+            pygame.draw.rect(
+                self.screen, display_color,
+                (bar_x, bar_y, bar_w, bar_height), 1
+            )
+
     def draw_projectiles(self, world) -> None:
         """
         Draw all active projectiles.
@@ -768,6 +851,7 @@ class PygameRenderer:
 
         # Draw UI
         self.draw_casting_bar(world)
+        self.draw_skill_cooldowns(world)
         self.draw_info_panel(epoch, reward, sigma, action, continuous, event, action_names)
 
         # Update display

@@ -157,8 +157,11 @@ class Trainer:
             # Get observation
             obs = self.feature_extractor.extract(self.world)
 
+            # Get action mask from world (blocks skills on cooldown / while casting)
+            action_mask = self.world.get_action_mask()
+
             # Get action from agent
-            a_d, aim_values, prob_d, mus, v, logits = self.agent.get_action(obs)
+            a_d, aim_values, prob_d, mus, v, logits = self.agent.get_action(obs, action_mask)
 
             # Get the relevant aim value for the selected action
             aim_for_action = self.agent.get_aim_value_for_action(a_d, aim_values)

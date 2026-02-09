@@ -144,6 +144,10 @@ class GameWorld:
             data={'tick': self.tick_count}
         ))
 
+        # Tick per-skill cooldowns unconditionally
+        if self.player and self.player.has_skills():
+            self.player.skills.tick_cooldowns()
+
         # Process monster movements
         self._update_monster_movements()
 
@@ -409,6 +413,28 @@ class GameWorld:
         if self.player and self.player.has_skills():
             return self.player.skills.is_ready
         return False
+
+    def get_action_mask(self) -> np.ndarray:
+        """Get binary action mask for current state."""
+        if self.player:
+            return self.player.get_action_mask()
+        return np.ones(7, dtype=np.float32)
+
+    def get_skill_cooldown_info(self) -> dict:
+        """
+        Get cooldown state for all player skills.
+
+        Returns:
+            Dict mapping skill_id -> (remaining_ticks, max_ticks, display_name)
+        """
+        if not self.player:
+            return {}
+        skills_comp = self.player.skills if self.player.has_skills() else None
+        result = {}
+        for skill_id, config in self.player.config.skills.items():
+            remaining = skills_comp.skill_cooldowns.get(skill_id, 0) if skills_comp else 0
+            result[skill_id] = (remaining, config.cooldown_ticks, config.name)
+        return result
 
     def get_active_projectiles(self) -> List:
         """Get all active projectiles for rendering."""

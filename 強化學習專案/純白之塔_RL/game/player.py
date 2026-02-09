@@ -7,6 +7,7 @@ providing a clean interface: Agent -> Player -> World
 
 from typing import Dict, Optional, List, TYPE_CHECKING
 from dataclasses import dataclass, field
+import numpy as np
 
 from game.entity import Entity, EntityFactory
 from game.components import Position, Health, Skills
@@ -111,7 +112,7 @@ class PlayerConfig:
                 "hammer": SkillConfig(
                     skill_id="hammer",
                     name="鐵錘",
-                    cooldown_ticks=35,
+                    cooldown_ticks=20,
                     wind_up_ticks=5,
                     can_move_during_wind_up=True,
                     requires_aim=True,
@@ -309,7 +310,7 @@ class Player:
             if self.entity.skills.is_ready:
                 skill_id = self.SKILL_ACTION_MAP[action_discrete]
                 skill_config = self.get_skill_config(skill_id)
-                if skill_config:
+                if skill_config and self.entity.skills.is_skill_available(skill_id):
                     # Get aim offset from the appropriate actor
                     aim_offset = 0.0
                     if skill_config.requires_aim and skill_config.aim_actor_index >= 0:
@@ -348,6 +349,26 @@ class Player:
                 return True
 
         return False
+
+    def get_action_mask(self) -> np.ndarray:
+        """
+        Compute a binary action mask.
+
+        Returns a float array of shape (n_actions,) where 0.0 means the
+        action is illegal (will be zeroed out in the agent's logits).
+        Skill actions are masked when the player is casting or the skill
+        is on cooldown. Movement actions are never masked.
+        """
+        mask = np.ones(7, dtype=np.float32)
+        if self.entity is None or not self.entity.has_skills():
+            return mask
+
+        skills = self.entity.skills
+        for action, skill_id in self.SKILL_ACTION_MAP.items():
+            if not skills.is_ready or not skills.is_skill_available(skill_id):
+                mask[action] = 0.0
+
+        return mask
 
     def get_skill_config(self, skill_id: str) -> Optional[SkillConfig]:
         """

@@ -113,6 +113,8 @@ class Skills:
         current_skill_shape_type: Shape type of current skill (CONE, RING, RECTANGLE, PROJECTILE)
         current_skill_extra_params: Extra parameters for current skill
         current_skill_wind_up_total: Total wind-up ticks (for progress calculation)
+        current_skill_cooldown: Cooldown ticks to apply when current skill completes
+        skill_cooldowns: Remaining cooldown ticks per skill_id
     """
     wind_up_remaining: int = 0
     aim_angle: float = 0.0
@@ -125,6 +127,10 @@ class Skills:
     current_skill_shape_type: Optional[str] = None  # Store as string to avoid circular import
     current_skill_extra_params: Dict[str, Any] = field(default_factory=dict)
     current_skill_wind_up_total: int = 4
+    current_skill_cooldown: int = 0
+
+    # Per-skill cooldown tracking
+    skill_cooldowns: Dict[str, int] = field(default_factory=dict)
 
     @property
     def is_casting(self) -> bool:
@@ -145,7 +151,8 @@ class Skills:
         angle_tolerance: float = 0.4,
         damage: float = 100.0,
         shape_type: Optional[str] = None,
-        extra_params: Optional[Dict[str, Any]] = None
+        extra_params: Optional[Dict[str, Any]] = None,
+        cooldown_ticks: int = 0
     ) -> None:
         """Begin casting a skill."""
         self.wind_up_remaining = wind_up_ticks
@@ -157,6 +164,7 @@ class Skills:
         self.current_skill_damage = damage
         self.current_skill_shape_type = shape_type or "cone"
         self.current_skill_extra_params = extra_params or {}
+        self.current_skill_cooldown = cooldown_ticks
 
     def tick(self) -> bool:
         """
@@ -170,8 +178,22 @@ class Skills:
             if self.wind_up_remaining == 0:
                 completed_skill = self.current_skill
                 self.current_skill = None
+                # Apply cooldown when skill finishes casting
+                if completed_skill and self.current_skill_cooldown > 0:
+                    self.skill_cooldowns[completed_skill] = self.current_skill_cooldown
+                self.current_skill_cooldown = 0
                 return True
         return False
+
+    def tick_cooldowns(self) -> None:
+        """Decrement all per-skill cooldown timers by one tick."""
+        for skill_id in list(self.skill_cooldowns.keys()):
+            if self.skill_cooldowns[skill_id] > 0:
+                self.skill_cooldowns[skill_id] -= 1
+
+    def is_skill_available(self, skill_id: str) -> bool:
+        """Check if a skill is off cooldown and can be cast."""
+        return self.skill_cooldowns.get(skill_id, 0) == 0
 
 
 @dataclass

@@ -173,8 +173,9 @@ class DevModeRenderer(PygameRenderer):
         # Draw aim cursor
         current_aim_offset = self.draw_aim_cursor(world, mouse_pos)
 
-        # Draw casting bar
+        # Draw casting bar and cooldowns
         self.draw_casting_bar(world)
+        self.draw_skill_cooldowns(world)
 
         # Get player info
         player_health = world.get_player_current_health()

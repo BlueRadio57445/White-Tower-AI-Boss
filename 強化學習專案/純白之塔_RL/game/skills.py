@@ -150,6 +150,7 @@ class SkillExecutor:
             damage = skill_def.damage
             shape_type = SkillShapeType.CONE
             extra_params = {}
+            cooldown_ticks = 0
         else:
             # New: use SkillConfig directly
             skill_id = skill.skill_id
@@ -159,6 +160,7 @@ class SkillExecutor:
             damage = skill.damage
             shape_type = skill.shape_type
             extra_params = skill.extra_params
+            cooldown_ticks = skill.cooldown_ticks
 
         aim_angle = caster.position.angle + np.clip(aim_offset, -0.5, 0.5)
         caster.skills.start_cast(
@@ -167,7 +169,8 @@ class SkillExecutor:
             angle_tolerance=angle_tolerance,
             damage=damage,
             shape_type=shape_type.value,
-            extra_params=extra_params
+            extra_params=extra_params,
+            cooldown_ticks=cooldown_ticks
         )
 
         self.event_bus.publish(GameEvent(

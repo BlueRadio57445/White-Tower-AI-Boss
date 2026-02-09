@@ -6,6 +6,9 @@ Uses squared probability distribution for discrete actions (hardware-friendly).
 from typing import Tuple, List, Optional, Dict, Any
 import numpy as np
 
+# Sentinel: use this as default for action_mask param to distinguish "not passed" from None
+_NO_MASK = None
+
 from core.math_utils import squared_prob, gaussian_log_prob
 
 
@@ -88,12 +91,18 @@ class HybridPPOAgent:
         # Experience buffer
         self.buffer: List[tuple] = []
 
-    def get_action(self, observation: np.ndarray) -> Tuple[int, List[float], float, List[float], float, np.ndarray]:
+    def get_action(
+        self,
+        observation: np.ndarray,
+        action_mask: Optional[np.ndarray] = None
+    ) -> Tuple[int, List[float], float, List[float], float, np.ndarray]:
         """
         Select an action given the current observation.
 
         Args:
             observation: Feature vector
+            action_mask: Optional float array of shape (n_actions,). 0.0 masks
+                an action (sets its logit to 0 before squared_prob).
 
         Returns:
             Tuple of:
@@ -106,6 +115,8 @@ class HybridPPOAgent:
         """
         # Discrete action selection using squared probability
         logits = np.dot(self.w_actor_discrete, observation)
+        if action_mask is not None:
+            logits = logits * action_mask
         probs_discrete, scores, sum_scores, logits_saved = squared_prob(logits)
         action_discrete = np.random.choice(len(probs_discrete), p=probs_discrete)
 
@@ -145,17 +156,24 @@ class HybridPPOAgent:
             return aim_values[actor_idx]
         return 0.0
 
-    def get_action_deterministic(self, observation: np.ndarray) -> Tuple[int, List[float]]:
+    def get_action_deterministic(
+        self,
+        observation: np.ndarray,
+        action_mask: Optional[np.ndarray] = None
+    ) -> Tuple[int, List[float]]:
         """
         Select action deterministically (for evaluation).
 
         Args:
             observation: Feature vector
+            action_mask: Optional action mask (see get_action)
 
         Returns:
             Tuple of (discrete_action, aim_values)
         """
         logits = np.dot(self.w_actor_discrete, observation)
+        if action_mask is not None:
+            logits = logits * action_mask
         probs_discrete, _, _, _ = squared_prob(logits)
         action_discrete = np.argmax(probs_discrete)
 
