@@ -18,8 +18,9 @@ class SkillShapeType(Enum):
     """技能範圍形狀類型"""
     CONE = "cone"           # 扇形 (現有 basic_attack)
     RING = "ring"           # 環形 (外圈刮)
-    RECTANGLE = "rectangle" # 長方形 (鐵錘)
+    RECTANGLE = "rectangle" # 長方形 (鐵錘, 靈魂爪, 靈魂掌)
     PROJECTILE = "projectile" # 投射物 (飛彈)
+    DASH = "dash"           # 位移 (閃現)
 
 
 @dataclass
@@ -220,6 +221,10 @@ class SkillExecutor:
         if shape_type == SkillShapeType.PROJECTILE:
             return self._handle_projectile_skill(caster, skill_id, damage, extra_params)
 
+        # Handle dash skills differently (no damage, just movement)
+        if shape_type == SkillShapeType.DASH:
+            return self._handle_dash_skill(caster, skill_id, extra_params)
+
         # Find hit targets based on shape type
         hit_results = self._check_hit_by_shape(
             caster, targets, skill_range, angle_tolerance,
@@ -307,6 +312,70 @@ class SkillExecutor:
             data={'skill_id': skill_id, 'projectile_spawned': True}
         )
         # Don't publish here - already published by projectile_manager
+        return event
+
+    def _handle_dash_skill(
+        self,
+        caster: Entity,
+        skill_id: str,
+        extra_params: Dict[str, Any]
+    ) -> GameEvent:
+        """
+        Handle dash skill completion by moving the caster.
+
+        Args:
+            caster: The entity casting the skill
+            skill_id: Skill identifier
+            extra_params: Contains dash_distance, dash_direction_offset, dash_facing_offset
+
+        Returns:
+            Event for dash completion
+        """
+        if not caster.has_position():
+            event = GameEvent(
+                EventType.SKILL_MISSED,
+                source_entity=caster,
+                data={'skill_id': skill_id, 'reason': 'no_position'}
+            )
+            self.event_bus.publish(event)
+            return event
+
+        dash_distance = extra_params.get("dash_distance", 3.0)
+        # Note: aim_angle already includes the dash_direction_offset
+        # The facing offset will be applied after movement
+        dash_direction = caster.skills.aim_angle
+        dash_facing_offset = extra_params.get("dash_facing_offset", 0.0)
+
+        # Calculate new position
+        current_pos = caster.position.as_array()
+        direction_vec = np.array([np.cos(dash_direction), np.sin(dash_direction)])
+        new_pos = current_pos + direction_vec * dash_distance
+
+        # Boundary check (0-10 world size)
+        new_pos = np.clip(new_pos, 0.1, 9.9)
+
+        # Update position and facing
+        caster.position.x = new_pos[0]
+        caster.position.y = new_pos[1]
+        caster.position.angle = caster.position.angle + np.clip(dash_facing_offset, -np.pi, np.pi)
+
+        # Normalize angle to [-π, π]
+        caster.position.angle = np.arctan2(
+            np.sin(caster.position.angle),
+            np.cos(caster.position.angle)
+        )
+
+        # Publish dash complete event
+        event = GameEvent(
+            EventType.SKILL_CAST_COMPLETE,
+            source_entity=caster,
+            data={
+                'skill_id': skill_id,
+                'dash_distance': dash_distance,
+                'new_position': new_pos.tolist()
+            }
+        )
+        self.event_bus.publish(event)
         return event
 
     def _check_hit_by_shape(
@@ -438,11 +507,12 @@ class SkillExecutor:
         """
         Check if rectangle skill hits any targets.
         Deals more damage at the tip (far end) of the rectangle.
+        Also handles pull/push effects if specified in extra_params.
 
         Args:
             caster: The casting entity
             targets: Potential targets
-            extra_params: Contains length, width, tip_range_start, tip_damage
+            extra_params: Contains length, width, tip_range_start, tip_damage, pull_distance, push_distance
             base_damage: Base damage to deal
 
         Returns:
@@ -455,6 +525,8 @@ class SkillExecutor:
         width = extra_params.get("width", 0.8)
         tip_start = extra_params.get("tip_range_start", 4.0)
         tip_damage = extra_params.get("tip_damage", 50.0)
+        pull_distance = extra_params.get("pull_distance", 0.0)
+        push_distance = extra_params.get("push_distance", 0.0)
 
         aim_angle = caster.skills.aim_angle
         caster_pos = caster.position.as_array()
@@ -483,6 +555,29 @@ class SkillExecutor:
                 # Determine damage based on position
                 damage = tip_damage if forward_dist >= tip_start else base_damage
                 hit_results.append((target, damage))
+
+                # Apply pull or push effect
+                if pull_distance > 0:
+                    # Pull towards caster
+                    direction_to_caster = caster_pos - target_pos
+                    dist_to_caster = np.linalg.norm(direction_to_caster)
+                    if dist_to_caster > 0:
+                        direction_to_caster /= dist_to_caster
+                        new_pos = target_pos + direction_to_caster * pull_distance
+                        new_pos = np.clip(new_pos, 0.1, 9.9)
+                        target.position.x = new_pos[0]
+                        target.position.y = new_pos[1]
+
+                elif push_distance > 0:
+                    # Push away from caster
+                    direction_from_caster = target_pos - caster_pos
+                    dist_to_caster = np.linalg.norm(direction_from_caster)
+                    if dist_to_caster > 0:
+                        direction_from_caster /= dist_to_caster
+                        new_pos = target_pos + direction_from_caster * push_distance
+                        new_pos = np.clip(new_pos, 0.1, 9.9)
+                        target.position.x = new_pos[0]
+                        target.position.y = new_pos[1]
 
         return hit_results
 

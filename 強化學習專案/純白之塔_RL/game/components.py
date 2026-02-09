@@ -134,8 +134,8 @@ class Skills:
 
     @property
     def is_casting(self) -> bool:
-        """Check if currently casting a skill."""
-        return self.wind_up_remaining > 0
+        """Check if currently casting a skill (including instant cast skills)."""
+        return self.wind_up_remaining > 0 or self.current_skill is not None
 
     @property
     def is_ready(self) -> bool:
@@ -173,6 +173,16 @@ class Skills:
         Returns:
             True if skill completed this tick, False otherwise
         """
+        # Handle instant cast skills (wind_up = 0)
+        if self.wind_up_remaining == 0 and self.current_skill is not None:
+            completed_skill = self.current_skill
+            self.current_skill = None
+            # Apply cooldown when skill finishes casting
+            if completed_skill and self.current_skill_cooldown > 0:
+                self.skill_cooldowns[completed_skill] = self.current_skill_cooldown
+            self.current_skill_cooldown = 0
+            return True
+
         if self.wind_up_remaining > 0:
             self.wind_up_remaining -= 1
             if self.wind_up_remaining == 0:

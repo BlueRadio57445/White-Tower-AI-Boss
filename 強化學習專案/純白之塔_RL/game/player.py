@@ -40,6 +40,7 @@ class SkillConfig:
     # Aiming
     requires_aim: bool = False            # Needs aim input
     aim_actor_index: int = -1             # Index of aim actor (-1 = no aim, 0 = aim_missile, 1 = aim_hammer)
+    aim_actor_indices: List[int] = field(default_factory=list)  # For skills needing multiple aim inputs (e.g., dash)
 
     # Damage/Range (basic parameters)
     damage: float = 100.0
@@ -78,7 +79,7 @@ class PlayerConfig:
         """Add default skills if none provided."""
         if not self.skills:
             self.skills = {
-                # Action 3: 外圈刮 (Outer Slash) - 環形 AOE，不需要瞄準
+                # Action 4: 外圈刮 (Outer Slash) - 環形 AOE，不需要瞄準
                 "outer_slash": SkillConfig(
                     skill_id="outer_slash",
                     name="外圈刮",
@@ -93,7 +94,7 @@ class PlayerConfig:
                     shape_type=SkillShapeType.RING,
                     extra_params={"inner_radius": 3.0, "outer_radius": 4.5}
                 ),
-                # Action 4: 飛彈 (Missile) - 投射物，使用 aim_actor 0
+                # Action 5: 飛彈 (Missile) - 投射物，使用 aim_actor 0
                 "missile": SkillConfig(
                     skill_id="missile",
                     name="飛彈",
@@ -108,7 +109,7 @@ class PlayerConfig:
                     shape_type=SkillShapeType.PROJECTILE,
                     extra_params={"speed": 1.5, "radius": 0.5, "max_range": 15.0}
                 ),
-                # Action 5: 鐵錘 (Hammer) - 長方形範圍，使用 aim_actor 1
+                # Action 6: 鐵錘 (Hammer) - 長方形範圍，使用 aim_actor 1
                 "hammer": SkillConfig(
                     skill_id="hammer",
                     name="鐵錘",
@@ -126,6 +127,62 @@ class PlayerConfig:
                         "width": 0.8,
                         "tip_range_start": 4.0,
                         "tip_damage": 50.0
+                    }
+                ),
+                # Action 7: 閃現 (Dash) - 固定距離位移，使用 aim_actor 2, 3
+                "dash": SkillConfig(
+                    skill_id="dash",
+                    name="閃現",
+                    cooldown_ticks=40,
+                    wind_up_ticks=0,  # Instant cast
+                    can_move_during_wind_up=False,
+                    requires_aim=True,
+                    aim_actor_index=2,  # Uses aim_dash_direction actor
+                    aim_actor_indices=[2, 3],  # [dash_direction, dash_facing]
+                    damage=0.0,  # No damage
+                    range=3.0,  # dash_distance
+                    angle_tolerance=0.0,  # Not used for dash
+                    shape_type=SkillShapeType.DASH,
+                    extra_params={
+                        "dash_distance": 3.0,
+                    }
+                ),
+                # Action 8: 靈魂爪 (Soul Claw) - 長方形範圍拉人，使用 aim_actor 4
+                "soul_claw": SkillConfig(
+                    skill_id="soul_claw",
+                    name="靈魂爪",
+                    cooldown_ticks=35,
+                    wind_up_ticks=8,
+                    can_move_during_wind_up=False,
+                    requires_aim=True,
+                    aim_actor_index=4,  # Uses aim_claw actor
+                    damage=20.0,
+                    range=6.0,  # length
+                    angle_tolerance=0.0,  # Not used for rectangle
+                    shape_type=SkillShapeType.RECTANGLE,
+                    extra_params={
+                        "length": 6.0,
+                        "width": 2.0,
+                        "pull_distance": 3.0,
+                    }
+                ),
+                # Action 9: 靈魂掌 (Soul Palm) - 長方形範圍推人，使用 aim_actor 5
+                "soul_palm": SkillConfig(
+                    skill_id="soul_palm",
+                    name="靈魂掌",
+                    cooldown_ticks=35,
+                    wind_up_ticks=8,
+                    can_move_during_wind_up=False,
+                    requires_aim=True,
+                    aim_actor_index=5,  # Uses aim_palm actor
+                    damage=20.0,
+                    range=6.0,  # length
+                    angle_tolerance=0.0,  # Not used for rectangle
+                    shape_type=SkillShapeType.RECTANGLE,
+                    extra_params={
+                        "length": 6.0,
+                        "width": 2.0,
+                        "push_distance": 3.0,
                     }
                 ),
             }
@@ -259,6 +316,9 @@ class Player:
         4: "outer_slash",  # 外圈刮
         5: "missile",      # 飛彈
         6: "hammer",       # 鐵錘
+        7: "dash",         # 閃現
+        8: "soul_claw",    # 靈魂爪
+        9: "soul_palm",    # 靈魂掌
     }
 
     def execute_action(
@@ -306,16 +366,36 @@ class Player:
         elif action_discrete == 3:  # Rotate right
             physics.rotate_entity(self.entity, -self.config.turn_speed)
 
-        elif action_discrete in self.SKILL_ACTION_MAP:  # Cast skill (4, 5, 6)
+        elif action_discrete in self.SKILL_ACTION_MAP:  # Cast skill (4-9)
             if self.entity.skills.is_ready:
                 skill_id = self.SKILL_ACTION_MAP[action_discrete]
                 skill_config = self.get_skill_config(skill_id)
                 if skill_config and self.entity.skills.is_skill_available(skill_id):
-                    # Get aim offset from the appropriate actor
+                    # Get aim offset from the appropriate actor(s)
                     aim_offset = 0.0
-                    if skill_config.requires_aim and skill_config.aim_actor_index >= 0:
-                        if skill_config.aim_actor_index < len(aim_values):
-                            aim_offset = aim_values[skill_config.aim_actor_index]
+                    modified_extra_params = skill_config.extra_params.copy()
+
+                    if skill_config.requires_aim:
+                        # Handle multiple aim actors (e.g., dash needs 2)
+                        if skill_config.aim_actor_indices:
+                            # Collect all aim values for this skill
+                            for i, actor_idx in enumerate(skill_config.aim_actor_indices):
+                                if actor_idx < len(aim_values):
+                                    if i == 0:
+                                        # First aim value is the primary aim_offset
+                                        aim_offset = aim_values[actor_idx]
+                                    elif i == 1:
+                                        # Second aim value (for dash facing)
+                                        modified_extra_params["dash_facing_offset"] = aim_values[actor_idx]
+                        # Handle single aim actor (legacy)
+                        elif skill_config.aim_actor_index >= 0:
+                            if skill_config.aim_actor_index < len(aim_values):
+                                aim_offset = aim_values[skill_config.aim_actor_index]
+
+                    # Create a modified skill config with updated extra_params if needed
+                    if modified_extra_params != skill_config.extra_params:
+                        from dataclasses import replace
+                        skill_config = replace(skill_config, extra_params=modified_extra_params)
 
                     skill_executor.start_cast(
                         self.entity,
@@ -359,7 +439,7 @@ class Player:
         Skill actions are masked when the player is casting or the skill
         is on cooldown. Movement actions are never masked.
         """
-        mask = np.ones(7, dtype=np.float32)
+        mask = np.ones(10, dtype=np.float32)  # Updated to 10 actions (0-9)
         if self.entity is None or not self.entity.has_skills():
             return mask
 

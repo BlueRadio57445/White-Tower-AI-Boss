@@ -42,8 +42,16 @@ COLORS = {
     'cd_outer_slash': (255, 200, 100),    # Yellow for 外圈刮
     'cd_missile': (180, 100, 255),        # Purple for 飛彈
     'cd_hammer': (100, 200, 255),         # Cyan for 鐵錘
+    'cd_dash': (255, 100, 200),           # Pink for 閃現
+    'cd_soul_claw': (100, 255, 200),      # Teal for 靈魂爪
+    'cd_soul_palm': (255, 150, 100),      # Orange for 靈魂掌
     'cd_ready': (100, 255, 100),          # Green when ready
     'cd_bg': (35, 35, 35),               # Dark background
+    # New skill colors
+    'dash_target': (255, 100, 200, 80),   # Pink for dash target position
+    'dash_arrow': (255, 100, 200),        # Pink for dash direction arrow
+    'soul_claw': (100, 255, 200, 60),     # Teal for soul claw rectangle
+    'soul_palm': (255, 150, 100, 60),     # Orange for soul palm rectangle
 }
 
 
@@ -329,6 +337,7 @@ class PygameRenderer:
         aim_angle = skills.aim_angle
         shape_type = skills.current_skill_shape_type or "cone"
         extra_params = skills.current_skill_extra_params or {}
+        skill_id = skills.current_skill or ""
 
         # Clear skill surface
         self.skill_surface.fill((0, 0, 0, 0))
@@ -338,9 +347,17 @@ class PygameRenderer:
         elif shape_type == "ring":
             self._draw_ring_indicator(player_pos, extra_params)
         elif shape_type == "rectangle":
-            self._draw_rectangle_indicator(player_pos, aim_angle, extra_params)
+            # Determine color based on skill type
+            if "soul_claw" in skill_id:
+                self._draw_rectangle_indicator(player_pos, aim_angle, extra_params, skill_type="soul_claw")
+            elif "soul_palm" in skill_id:
+                self._draw_rectangle_indicator(player_pos, aim_angle, extra_params, skill_type="soul_palm")
+            else:
+                self._draw_rectangle_indicator(player_pos, aim_angle, extra_params, skill_type="hammer")
         elif shape_type == "projectile":
             self._draw_projectile_aim_line(player_pos, aim_angle, extra_params)
+        elif shape_type == "dash":
+            self._draw_dash_indicator(player_pos, aim_angle, extra_params, world.get_player_angle())
 
         # Blit skill surface onto main screen
         self.screen.blit(self.skill_surface, (0, 0))
@@ -419,11 +436,13 @@ class PygameRenderer:
             player_pos, inner_px, 2
         )
 
-    def _draw_rectangle_indicator(self, player_pos, aim_angle, extra_params) -> None:
-        """Draw rectangle shaped skill indicator with highlighted tip zone."""
+    def _draw_rectangle_indicator(self, player_pos, aim_angle, extra_params, skill_type="hammer") -> None:
+        """Draw rectangle shaped skill indicator with highlighted tip zone or pull/push indication."""
         length = extra_params.get("length", 5.0)
         width = extra_params.get("width", 0.8)
         tip_start = extra_params.get("tip_range_start", 4.0)
+        pull_distance = extra_params.get("pull_distance", 0.0)
+        push_distance = extra_params.get("push_distance", 0.0)
 
         length_px = self.world_to_screen_length(length)
         width_px = self.world_to_screen_length(width)
@@ -445,34 +464,46 @@ class PygameRenderer:
              player_pos[1] + forward[1] * length_px - right[1] * width_px / 2),
         ]
 
+        # Select color based on skill type
+        if skill_type == "soul_claw":
+            base_color = COLORS['soul_claw']
+            outline_color = (100, 255, 200)
+        elif skill_type == "soul_palm":
+            base_color = COLORS['soul_palm']
+            outline_color = (255, 150, 100)
+        else:  # hammer
+            base_color = COLORS['rectangle']
+            outline_color = (100, 200, 255)
+
         # Draw base rectangle
         pygame.draw.polygon(
             self.skill_surface,
-            COLORS['rectangle'],
+            base_color,
             corners
         )
 
-        # Draw tip zone (highlighted area at end)
-        tip_corners = [
-            (player_pos[0] + forward[0] * tip_start_px - right[0] * width_px / 2,
-             player_pos[1] + forward[1] * tip_start_px - right[1] * width_px / 2),
-            (player_pos[0] + forward[0] * tip_start_px + right[0] * width_px / 2,
-             player_pos[1] + forward[1] * tip_start_px + right[1] * width_px / 2),
-            (player_pos[0] + forward[0] * length_px + right[0] * width_px / 2,
-             player_pos[1] + forward[1] * length_px + right[1] * width_px / 2),
-            (player_pos[0] + forward[0] * length_px - right[0] * width_px / 2,
-             player_pos[1] + forward[1] * length_px - right[1] * width_px / 2),
-        ]
+        # Draw tip zone (highlighted area at end) - only for hammer
+        if skill_type == "hammer" and tip_start > 0:
+            tip_corners = [
+                (player_pos[0] + forward[0] * tip_start_px - right[0] * width_px / 2,
+                 player_pos[1] + forward[1] * tip_start_px - right[1] * width_px / 2),
+                (player_pos[0] + forward[0] * tip_start_px + right[0] * width_px / 2,
+                 player_pos[1] + forward[1] * tip_start_px + right[1] * width_px / 2),
+                (player_pos[0] + forward[0] * length_px + right[0] * width_px / 2,
+                 player_pos[1] + forward[1] * length_px + right[1] * width_px / 2),
+                (player_pos[0] + forward[0] * length_px - right[0] * width_px / 2,
+                 player_pos[1] + forward[1] * length_px - right[1] * width_px / 2),
+            ]
 
-        pygame.draw.polygon(
-            self.skill_surface,
-            COLORS['rectangle_tip'],
-            tip_corners
-        )
+            pygame.draw.polygon(
+                self.skill_surface,
+                COLORS['rectangle_tip'],
+                tip_corners
+            )
 
         # Draw outline on main screen
         pygame.draw.polygon(
-            self.screen, (100, 200, 255),
+            self.screen, outline_color,
             corners, 2
         )
 
@@ -482,6 +513,65 @@ class PygameRenderer:
         pygame.draw.line(
             self.screen, COLORS['aim_line'],
             player_pos, (end_x, end_y), 2
+        )
+
+    def _draw_dash_indicator(self, player_pos, aim_angle, extra_params, current_angle) -> None:
+        """Draw dash skill indicator showing target position and facing."""
+        dash_distance = extra_params.get("dash_distance", 3.0)
+        dash_facing_offset = extra_params.get("dash_facing_offset", 0.0)
+
+        distance_px = self.world_to_screen_length(dash_distance)
+
+        # Calculate target position
+        target_x = player_pos[0] + distance_px * math.cos(aim_angle)
+        target_y = player_pos[1] - distance_px * math.sin(aim_angle)  # Y inverted
+        target_pos = (int(target_x), int(target_y))
+
+        # Draw path line
+        pygame.draw.line(
+            self.screen, COLORS['dash_arrow'],
+            player_pos, target_pos, 3
+        )
+
+        # Draw target position circle
+        pygame.draw.circle(
+            self.skill_surface,
+            COLORS['dash_target'],
+            target_pos,
+            20
+        )
+        pygame.draw.circle(
+            self.screen, COLORS['dash_arrow'],
+            target_pos, 20, 2
+        )
+
+        # Draw facing direction arrow at target position
+        final_facing = current_angle + dash_facing_offset
+        arrow_length = 25
+        arrow_end_x = target_x + arrow_length * math.cos(final_facing)
+        arrow_end_y = target_y - arrow_length * math.sin(final_facing)  # Y inverted
+
+        # Draw facing arrow
+        pygame.draw.line(
+            self.screen, COLORS['dash_arrow'],
+            target_pos, (arrow_end_x, arrow_end_y), 3
+        )
+
+        # Draw arrowhead
+        arrow_size = 8
+        head_angle1 = final_facing + 2.5
+        head_angle2 = final_facing - 2.5
+        head1 = (
+            arrow_end_x + arrow_size * math.cos(head_angle1),
+            arrow_end_y - arrow_size * math.sin(head_angle1)
+        )
+        head2 = (
+            arrow_end_x + arrow_size * math.cos(head_angle2),
+            arrow_end_y - arrow_size * math.sin(head_angle2)
+        )
+        pygame.draw.polygon(
+            self.screen, COLORS['dash_arrow'],
+            [(arrow_end_x, arrow_end_y), head1, head2]
         )
 
     def _draw_projectile_aim_line(self, player_pos, aim_angle, extra_params) -> None:
@@ -570,18 +660,21 @@ class PygameRenderer:
         if not cooldown_info:
             return
 
-        skill_order = ["outer_slash", "missile", "hammer"]
+        skill_order = ["outer_slash", "missile", "hammer", "dash", "soul_claw", "soul_palm"]
         skill_colors = [
             COLORS['cd_outer_slash'],
             COLORS['cd_missile'],
             COLORS['cd_hammer'],
+            COLORS['cd_dash'],
+            COLORS['cd_soul_claw'],
+            COLORS['cd_soul_palm'],
         ]
 
         # Position: directly below casting bar area
         section_y = self.margin + self.game_area_size + 42
-        bar_height = 10
-        label_height = 13
-        col_width = self.width // 3
+        bar_height = 8
+        label_height = 12
+        col_width = self.width // 3  # 3 columns, 2 rows
 
         for i, (skill_id, color) in enumerate(zip(skill_order, skill_colors)):
             info = cooldown_info.get(skill_id)
@@ -589,10 +682,13 @@ class PygameRenderer:
                 continue
             remaining, max_cd, name = info
 
+            # Layout: 3 columns × 2 rows
+            col = i % 3
+            row = i // 3
             bar_w = col_width - 20
-            bar_x = col_width * i + 10
-            label_y = section_y
-            bar_y = section_y + label_height
+            bar_x = col_width * col + 10
+            label_y = section_y + row * (bar_height + label_height + 5)
+            bar_y = label_y + label_height
 
             # Determine display color
             if remaining == 0:

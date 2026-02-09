@@ -20,28 +20,38 @@ class HybridPPOAgent:
     dead neuron problems. Supports both discrete and continuous actions.
 
     Action Space:
-        Discrete (7 actions): 0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT, 4=OUTER_SLASH, 5=MISSILE, 6=HAMMER
-        Continuous (2 actors): aim_missile (actor 0), aim_hammer (actor 1)
+        Discrete (10 actions): 0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT,
+                               4=OUTER_SLASH, 5=MISSILE, 6=HAMMER,
+                               7=DASH, 8=SOUL_CLAW, 9=SOUL_PALM
+        Continuous (6 actors): aim_missile (0), aim_hammer (1),
+                               aim_dash_direction (2), aim_dash_facing (3),
+                               aim_claw (4), aim_palm (5)
 
     Skill to Actor Mapping:
         4 (outer_slash): No aim required
         5 (missile): Uses aim_missile (actor 0)
         6 (hammer): Uses aim_hammer (actor 1)
+        7 (dash): Uses aim_dash_direction (actor 2), aim_dash_facing (actor 3)
+        8 (soul_claw): Uses aim_claw (actor 4)
+        9 (soul_palm): Uses aim_palm (actor 5)
     """
 
     # Skill action to aim actor mapping
-    # -1 means no aim required, 0 = aim_missile, 1 = aim_hammer
+    # -1 means no aim required, others are actor indices
     SKILL_TO_AIM_ACTOR = {
         4: -1,  # outer_slash - no aim
         5: 0,   # missile - aim_missile
         6: 1,   # hammer - aim_hammer
+        7: [2, 3],  # dash - aim_dash_direction, aim_dash_facing
+        8: 4,   # soul_claw - aim_claw
+        9: 5,   # soul_palm - aim_palm
     }
 
     def __init__(
         self,
         n_features: int,
-        n_discrete_actions: int = 7,
-        n_aim_actors: int = 2,
+        n_discrete_actions: int = 10,
+        n_aim_actors: int = 6,
         gamma: float = 0.99,
         lmbda: float = 0.95,
         epsilon: float = 0.2,
@@ -54,8 +64,8 @@ class HybridPPOAgent:
 
         Args:
             n_features: Number of input features
-            n_discrete_actions: Number of discrete actions (default 7)
-            n_aim_actors: Number of aim actors (default 2)
+            n_discrete_actions: Number of discrete actions (default 10)
+            n_aim_actors: Number of aim actors (default 6)
             gamma: Discount factor
             lmbda: GAE lambda parameter
             epsilon: PPO clipping parameter
@@ -145,13 +155,22 @@ class HybridPPOAgent:
         Get the relevant aim value for a given discrete action.
 
         Args:
-            action_discrete: The discrete action (0-6)
+            action_discrete: The discrete action (0-9)
             aim_values: List of aim values from all actors
 
         Returns:
             The aim value to use (0.0 if action doesn't need aiming)
+            For skills with multiple aim actors, returns the first one.
         """
         actor_idx = self.SKILL_TO_AIM_ACTOR.get(action_discrete, -1)
+
+        # Handle skills with multiple aim actors (e.g., dash uses [2, 3])
+        if isinstance(actor_idx, list):
+            if len(actor_idx) > 0 and actor_idx[0] < len(aim_values):
+                return aim_values[actor_idx[0]]
+            return 0.0
+
+        # Handle skills with single aim actor
         if actor_idx >= 0 and actor_idx < len(aim_values):
             return aim_values[actor_idx]
         return 0.0

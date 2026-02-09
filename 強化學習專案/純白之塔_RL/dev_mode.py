@@ -12,8 +12,13 @@ Controls:
 - A: Turn left
 - D: Turn right
 - P: Pass (advance one tick without action)
-- 1: Cast skill 1 (basic attack)
-- 2: Cast skill 2 (reserved)
+- 1: Cast 外圈刮 (Outer Slash)
+- 2: Cast 飛彈 (Missile)
+- 3: Cast 鐵錘 (Hammer)
+- 4: Cast 閃現 (Dash)
+- 5: Cast 靈魂爪 (Soul Claw)
+- 6: Cast 靈魂掌 (Soul Palm)
+- R: Reset world
 - ESC: Quit
 
 Mouse:
@@ -205,8 +210,8 @@ class DevMode:
     """
 
     # Action mappings
-    # 0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT, 4=OUTER_SLASH, 5=MISSILE, 6=HAMMER, 7=PASS
-    ACTION_NAMES = ["FORWARD", "BACKWARD", "LEFT", "RIGHT", "外圈刮", "飛彈", "鐵錘", "PASS"]
+    # 0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT, 4=OUTER_SLASH, 5=MISSILE, 6=HAMMER, 7=DASH, 8=SOUL_CLAW, 9=SOUL_PALM, 10=PASS
+    ACTION_NAMES = ["前進", "後退", "左轉", "右轉", "外圈刮", "飛彈", "鐵錘", "閃現", "靈魂爪", "靈魂掌", "PASS"]
 
     def __init__(self, world_size: float = 10.0):
         """
@@ -343,14 +348,20 @@ class DevMode:
                         return 5  # Cast 飛彈 (Missile)
                     elif event.key == pygame.K_3:
                         return 6  # Cast 鐵錘 (Hammer)
+                    elif event.key == pygame.K_4:
+                        return 7  # Cast 閃現 (Dash)
+                    elif event.key == pygame.K_5:
+                        return 8  # Cast 靈魂爪 (Soul Claw)
+                    elif event.key == pygame.K_6:
+                        return 9  # Cast 靈魂掌 (Soul Palm)
                     elif event.key == pygame.K_p:
-                        return 7  # Pass
+                        return 10  # Pass
                     elif event.key == pygame.K_r:
                         # Reset world
                         self.world.reset()
                         self.tick_count = 0
                         self.last_event = "WORLD RESET"
-                        return 7  # Pass after reset
+                        return 10  # Pass after reset
 
             # Update display while waiting
             mouse_pos = pygame.mouse.get_pos()
@@ -371,29 +382,41 @@ class DevMode:
         Execute the given action and advance the game tick.
 
         Args:
-            action: Action code (0-6)
+            action: Action code (0-10)
             aim_offset: Aim offset for casting
         """
-        if action == 7:  # Pass
+        if action == 10:  # Pass
             self.last_action = "PASS"
             self.last_event = ""
             self.last_aim_offset = 0.0
         else:
             # Map action to discrete action
-            action_discrete = action  # 0=forward, 1=backward, 2=left, 3=right, 4-6=skills
+            action_discrete = action  # 0=forward, 1=backward, 2=left, 3=right, 4-9=skills
 
             # Build aim_values list based on action
             # Action 4 (outer_slash): no aim needed
             # Action 5 (missile): uses aim_actor 0
             # Action 6 (hammer): uses aim_actor 1
-            aim_values = [0.0, 0.0]  # [aim_missile, aim_hammer]
+            # Action 7 (dash): uses aim_actor 2, 3
+            # Action 8 (soul_claw): uses aim_actor 4
+            # Action 9 (soul_palm): uses aim_actor 5
+            aim_values = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 6 aim actors
             if action == 5:
                 aim_values[0] = aim_offset  # missile uses actor 0
             elif action == 6:
                 aim_values[1] = aim_offset  # hammer uses actor 1
+            elif action == 7:
+                # Dash uses actors 2 and 3 (direction and facing)
+                # For simplicity in dev mode, use the same offset for both
+                aim_values[2] = aim_offset  # dash direction
+                aim_values[3] = 0.0  # dash facing (keep current facing)
+            elif action == 8:
+                aim_values[4] = aim_offset  # soul_claw uses actor 4
+            elif action == 9:
+                aim_values[5] = aim_offset  # soul_palm uses actor 5
 
-            self.last_action = self.ACTION_NAMES[action]
-            self.last_aim_offset = aim_offset if action in (5, 6) else 0.0
+            self.last_action = self.ACTION_NAMES[action] if action < len(self.ACTION_NAMES) else f"ACTION_{action}"
+            self.last_aim_offset = aim_offset if action in (5, 6, 7, 8, 9) else 0.0
 
             # Execute the action
             self.last_event = self.world.execute_action(action_discrete, aim_values)
