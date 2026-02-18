@@ -302,24 +302,30 @@ class PygameRenderer:
 
     def draw_blood_pack(self, world) -> None:
         """
-        Draw the blood pack item.
+        Draw all blood pack items.
 
         Args:
             world: GameWorld instance
         """
-        pos = world.get_blood_pack_position()
-        screen_pos = self.world_to_screen(pos)
-
-        # Draw as diamond shape
         size = 10
-        points = [
-            (screen_pos[0], screen_pos[1] - size),      # top
-            (screen_pos[0] + size, screen_pos[1]),      # right
-            (screen_pos[0], screen_pos[1] + size),      # bottom
-            (screen_pos[0] - size, screen_pos[1]),      # left
-        ]
-        pygame.draw.polygon(self.screen, COLORS['blood_pack'], points)
-        pygame.draw.polygon(self.screen, (50, 180, 50), points, 2)
+        for item in world.items:
+            if not item.is_alive or not item.has_tag("blood_pack"):
+                continue
+            if not item.has_position():
+                continue
+
+            pos = item.position.as_array()
+            screen_pos = self.world_to_screen(pos)
+
+            # Draw as diamond shape
+            points = [
+                (screen_pos[0], screen_pos[1] - size),      # top
+                (screen_pos[0] + size, screen_pos[1]),      # right
+                (screen_pos[0], screen_pos[1] + size),      # bottom
+                (screen_pos[0] - size, screen_pos[1]),      # left
+            ]
+            pygame.draw.polygon(self.screen, COLORS['blood_pack'], points)
+            pygame.draw.polygon(self.screen, (50, 180, 50), points, 2)
 
     def draw_skill_indicator(self, world) -> None:
         """

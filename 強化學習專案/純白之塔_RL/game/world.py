@@ -122,7 +122,7 @@ class GameWorld:
             self.monsters.append(monster)
             self.entities.append(monster)
 
-        # Create blood pack
+        # Create initial blood pack
         bx, by = self.room.spawn_points.get('blood_pack', (5.0, 8.0))
         blood = EntityFactory.create_blood_pack(bx, by)
         self.items.append(blood)
