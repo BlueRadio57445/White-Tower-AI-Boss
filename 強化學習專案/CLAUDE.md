@@ -247,12 +247,15 @@ for proj in projectiles:
 |-------|--------|------|
 | TICK | -0.01 | Time penalty |
 | HIT_WALL | -2.0 | Player hits boundary |
-| ITEM_COLLECTED | +25.0 | Blood pack collected |
-| SKILL_CAST_COMPLETE | +12.0 | Skill hits monster (including projectile) |
+| DAMAGE_DEALT | +1.0 × damage | Skill hits monster (via SKILL_CAST_COMPLETE) |
+| DAMAGE_TAKEN | -1.0 × damage | Player takes damage |
+| HEAL | +1.0 × heal_amount | Blood pack collected (via ITEM_COLLECTED) |
+| KILL_ENEMY | +20.0 | Enemy killed (via ENTITY_KILLED) |
+| SUMMON_BLOOD_PACK | +3.0 per pack | Summon skill spawns packs |
 | AGENT_DIED | -200.0 | Player death |
 | ALL_ENEMIES_DEAD | +300.0 | Victory |
 
-**Important**: Projectile skills (飛彈) only trigger `SKILL_CAST_COMPLETE` when the projectile actually hits a monster, not when cast. Projectiles hitting walls or timing out give no reward.
+**Important**: Projectile skills (飛彈) only trigger DAMAGE_DEALT/KILL_ENEMY rewards when the projectile actually hits a monster, not when cast.
 
 ## Conventions
 
