@@ -420,12 +420,11 @@ class SkillExecutor:
         emerge_damage = extra_params.get("emerge_damage", 35.0)
         emerge_radius = extra_params.get("emerge_radius", 2.5)
 
-        # Enter blood pool state
+        # Enter blood pool state (no reward yet - reward is given on emerge hit)
         caster.skills.enter_blood_pool(pool_duration, emerge_damage, emerge_radius)
 
-        # Publish blood pool entered event
         event = GameEvent(
-            EventType.SKILL_CAST_COMPLETE,
+            EventType.SKILL_CAST_START,
             source_entity=caster,
             data={
                 'skill_id': skill_id,
@@ -488,19 +487,22 @@ class SkillExecutor:
                         data={'skill_id': 'blood_pool'}
                     ))
 
-        # Publish emerge event
-        event = GameEvent(
-            EventType.SKILL_CAST_COMPLETE,
-            source_entity=caster,
-            data={
-                'skill_id': 'blood_pool',
-                'state': 'emerged',
-                'hit_count': len(hit_results),
-                'damage': emerge_damage
-            }
-        )
-        self.event_bus.publish(event)
-        return event
+        # Only reward if at least one target was hit (consistent with projectile design)
+        if hit_results:
+            event = GameEvent(
+                EventType.SKILL_CAST_COMPLETE,
+                source_entity=caster,
+                data={
+                    'skill_id': 'blood_pool',
+                    'state': 'emerged',
+                    'hit_count': len(hit_results),
+                    'damage': emerge_damage
+                }
+            )
+            self.event_bus.publish(event)
+            return event
+
+        return None
 
     def _handle_summon_skill(
         self,

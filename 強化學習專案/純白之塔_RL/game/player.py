@@ -409,7 +409,7 @@ class Player:
             physics.rotate_entity(self.entity, -self.config.turn_speed)
 
         elif action_discrete in self.SKILL_ACTION_MAP:  # Cast skill (4-9)
-            if self.entity.skills.is_ready:
+            if self.entity.skills.is_ready and not self.entity.skills.in_blood_pool:
                 skill_id = self.SKILL_ACTION_MAP[action_discrete]
                 skill_config = self.get_skill_config(skill_id)
                 if skill_config and self.entity.skills.is_skill_available(skill_id):

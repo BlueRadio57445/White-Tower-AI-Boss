@@ -174,6 +174,9 @@ class DevModeRenderer(PygameRenderer):
         # Draw skill indicator
         self.draw_skill_indicator(world)
 
+        # Draw blood pool effect (if player is in blood pool)
+        self.draw_blood_pool_effect(world)
+
         # Draw player
         self.draw_player(world)
 

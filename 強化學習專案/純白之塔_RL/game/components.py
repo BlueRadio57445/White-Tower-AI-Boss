@@ -137,6 +137,7 @@ class Skills:
     blood_pool_remaining: int = 0
     blood_pool_emerge_damage: float = 0.0
     blood_pool_emerge_radius: float = 0.0
+    blood_pool_pending_cooldown: int = 0  # cooldown to apply when emerging
 
     @property
     def is_casting(self) -> bool:
@@ -183,8 +184,10 @@ class Skills:
         if self.wind_up_remaining == 0 and self.current_skill is not None:
             completed_skill = self.current_skill
             self.current_skill = None
-            # Apply cooldown when skill finishes casting
-            if completed_skill and self.current_skill_cooldown > 0:
+            # blood_pool cooldown is deferred until the player emerges
+            if completed_skill == 'blood_pool' and self.current_skill_cooldown > 0:
+                self.blood_pool_pending_cooldown = self.current_skill_cooldown
+            elif completed_skill and self.current_skill_cooldown > 0:
                 self.skill_cooldowns[completed_skill] = self.current_skill_cooldown
             self.current_skill_cooldown = 0
             return True
@@ -194,8 +197,10 @@ class Skills:
             if self.wind_up_remaining == 0:
                 completed_skill = self.current_skill
                 self.current_skill = None
-                # Apply cooldown when skill finishes casting
-                if completed_skill and self.current_skill_cooldown > 0:
+                # blood_pool cooldown is deferred until the player emerges
+                if completed_skill == 'blood_pool' and self.current_skill_cooldown > 0:
+                    self.blood_pool_pending_cooldown = self.current_skill_cooldown
+                elif completed_skill and self.current_skill_cooldown > 0:
                     self.skill_cooldowns[completed_skill] = self.current_skill_cooldown
                 self.current_skill_cooldown = 0
                 return True
@@ -238,6 +243,10 @@ class Skills:
         self.blood_pool_remaining -= 1
         if self.blood_pool_remaining <= 0:
             self.in_blood_pool = False
+            # Apply the deferred cooldown now that the pool is over
+            if self.blood_pool_pending_cooldown > 0:
+                self.skill_cooldowns['blood_pool'] = self.blood_pool_pending_cooldown
+                self.blood_pool_pending_cooldown = 0
             return True  # Emerging!
         return False
 

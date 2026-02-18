@@ -663,26 +663,23 @@ class PygameRenderer:
         if not cooldown_info:
             return
 
-        skill_order = ["outer_slash", "missile", "hammer", "dash", "soul_claw", "soul_palm"]
-        skill_colors = [
-            COLORS['cd_outer_slash'],
-            COLORS['cd_missile'],
-            COLORS['cd_hammer'],
-            COLORS['cd_dash'],
-            COLORS['cd_soul_claw'],
-            COLORS['cd_soul_palm'],
-        ]
+        skill_order = list(cooldown_info.keys())
+
+        def _skill_color(skill_id: str):
+            key = f"cd_{skill_id}"
+            return COLORS.get(key, (180, 180, 180))  # fallback: light grey
 
         # Position: directly below casting bar area
         section_y = self.margin + self.game_area_size + 42
         bar_height = 8
         label_height = 12
-        col_width = self.width // 3  # 3 columns, 2 rows
+        col_width = self.width // 3  # 3 columns, N rows
 
-        for i, (skill_id, color) in enumerate(zip(skill_order, skill_colors)):
+        for i, skill_id in enumerate(skill_order):
             info = cooldown_info.get(skill_id)
             if info is None:
                 continue
+            color = _skill_color(skill_id)
             remaining, max_cd, name = info
 
             # Layout: 3 columns × 2 rows
