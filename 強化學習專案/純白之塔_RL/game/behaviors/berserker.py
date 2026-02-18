@@ -52,9 +52,9 @@ class BerserkerBehavior(MonsterBehavior):
         # 決定轉向：永遠面向 Agent
         turning = self._decide_turning(angle_diff)
 
-        # 決定移動：面向 Agent 時才前進
+        # 決定移動：面向 Agent 時才前進，但進入攻擊範圍就停止
         movement = MovementType.IDLE
-        if self._is_facing_target(angle_diff, tolerance=0.5):
+        if distance > self.attack_range and self._is_facing_target(angle_diff, tolerance=0.5):
             if distance > self.sprint_threshold:
                 movement = MovementType.SPRINT_FORWARD
             else:
