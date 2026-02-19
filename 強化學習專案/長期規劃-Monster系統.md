@@ -158,6 +158,84 @@ APPROACHING → ATTACKING → FLEEING → APPROACHING
 
 ---
 
+## 待實作的行為
+
+### 6. OpportunistBehavior（機會主義者）
+
+**策略**：
+- 維持安全距離繞圈等待
+- 偵測到 Boss 開始蓄力（casting progress 上升），立刻衝進去
+- 抵達攻擊範圍後攻擊
+- 攻擊後立即撤退，回到繞圈等待
+
+**狀態機**：
+```
+CIRCLING → RUSHING（Boss 蓄力中）→ ATTACKING（進入攻擊範圍）→ RETREATING → CIRCLING
+```
+
+**適用場景**：會讀招式的技巧型玩家
+
+---
+
+### 7. AdaptiveBehavior（適應型）
+
+**策略**：
+- 血量高時：激進，類似 berserker 直接衝
+- 血量中時：中等，類似 orbit 與其周旋
+- 血量極低時：保守，類似 hit_and_run 打完就跑
+
+**狀態機**：
+```
+PHASE_AGGRESSIVE（血量 > 60%）
+    ↕
+PHASE_CAUTIOUS（血量 30%-60%）
+    ↕
+PHASE_DESPERATE（血量 < 30%）
+```
+
+**關鍵觀察值**：自身血量（需在 MonsterBehavior 中存取 entity.health）
+
+**適用場景**：所有真實玩家都會考量自身血量
+
+---
+
+### 8. BackstabBehavior（繞背型）
+
+**策略**：
+- 永遠試圖移動到 Boss 的後方
+- 只有位於 Boss 後方扇形範圍內才攻擊
+- 不需要複雜狀態機，像 berserker/orbit 一樣純反應式
+
+**核心邏輯**：
+- 計算 Boss 背後的目標位置
+- 判斷自己是否已在後方（Boss 朝向角度 ± 容差）
+- 在後方時攻擊，不在後方時繞過去
+
+**適用場景**：習慣偷背的玩家
+
+---
+
+### 9. BloodPackDisruptorBehavior（血包干擾型）
+
+**策略**：
+- 附近沒有血包時：正常移動攻擊 Boss
+- 血包生成後：移動到血包位置守住
+- 守住血包的同時，在不離開血包太遠的情況下攻擊 Boss
+
+**狀態機**：
+```
+FIGHTING（無血包）→ RACING（血包生成，衝過去）→ GUARDING（守在血包旁攻擊）→ FIGHTING（血包消失）
+```
+
+**近戰版**：守住血包，等 Boss 接近時攻擊（或者以血包為圓心繞行，想辦法在不離開血包的前提下攻擊Boss）
+**遠程版**：守住血包，在守衛位置向 Boss 射擊，不需要靠近
+
+**關鍵觀察值**：血包位置 、血包距離 
+
+**適用場景**：策略型玩家（防止Boss回血的輔助角色）
+
+---
+
 ## 序列化
 
 行為支援序列化，用於地圖存檔和讀取：
