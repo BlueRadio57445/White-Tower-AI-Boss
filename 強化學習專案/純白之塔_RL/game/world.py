@@ -292,7 +292,7 @@ class GameWorld:
                     EventType.DAMAGE_TAKEN,
                     source_entity=monster,
                     target_entity=self.player.entity,
-                    data={"damage": damage}
+                    data={"damage": damage, "source": "melee"}
                 ))
 
                 # Check player death
@@ -312,9 +312,17 @@ class GameWorld:
         # Handle blood pack healing
         if item.has_tag("blood_pack"):
             heal_amount = item.get_component("heal_amount") or 30.0
+            actual_heal = 0.0
 
             if self.player.has_health():
-                self.player.health.heal(heal_amount)
+                actual_heal = self.player.health.heal(heal_amount)
+
+            self.event_bus.publish(GameEvent(
+                EventType.ITEM_COLLECTED,
+                source_entity=self.player.entity,
+                target_entity=item,
+                data={'item_type': item.entity_type, 'actual_heal': actual_heal}
+            ))
 
     def spawn_blood_pack(self, position: np.ndarray, heal_amount: float = 30.0) -> Entity:
         """

@@ -6,8 +6,8 @@ Reward structure:
     TICK:              -0.01 per tick (time pressure)
     HIT_WALL:          -2.0 (collision penalty)
     DAMAGE_DEALT:      +1.0 × damage (per hit)
-    DAMAGE_TAKEN:      -1.0 × damage (per hit taken)
-    HEAL:              +1.0 × heal_amount (blood pack collected)
+    DAMAGE_TAKEN:      -0.01 × damage (melee) / -1.0 × damage (projectile)
+    HEAL:              +1.0 × actual_heal (blood pack collected, capped by missing HP)
     KILL_ENEMY:        +20.0 (per kill)
     SUMMON_BLOOD_PACK: +3.0 per pack spawned
     AGENT_DIED:        -200.0
@@ -56,11 +56,12 @@ class RewardCalculator:
             self.last_event = "HIT WALL!"
 
     def _on_item_collected(self, event: GameEvent) -> None:
-        """Handle blood pack collection (HEAL: +1.0 × heal_amount)."""
+        """Handle blood pack collection (HEAL: +1.0 × actual_heal)."""
         if event.target_entity and event.target_entity.has_tag("blood_pack"):
-            heal_amount = event.target_entity.get_component("heal_amount") or 30.0
-            self.accumulated_reward += 1.0 * heal_amount
-            self.last_event = "EAT BLOOD!"
+            actual_heal = event.data.get('actual_heal', 0.0) if event.data else 0.0
+            if actual_heal > 0:
+                self.accumulated_reward += 1.0 * actual_heal
+                self.last_event = "EAT BLOOD!"
 
     def _on_skill_hit(self, event: GameEvent) -> None:
         """Handle skill hit events.
@@ -74,7 +75,7 @@ class RewardCalculator:
         if skill_id == 'summon_pack':
             packs_spawned = event.data.get('packs_spawned', 0)
             if packs_spawned > 0:
-                self.accumulated_reward += 3.0 * packs_spawned
+                self.accumulated_reward += 10.0 * packs_spawned
                 self.last_event = f"SUMMONED {packs_spawned} PACKS!"
             else:
                 self.last_event = "SUMMON LIMIT!"
@@ -87,14 +88,20 @@ class RewardCalculator:
 
     def _on_entity_killed(self, event: GameEvent) -> None:
         """Handle enemy kill event (KILL_ENEMY: +20.0)."""
-        self.accumulated_reward += 20.0
+        self.accumulated_reward += 120.0
         self.last_event = "KILLED MONSTER!"
 
     def _on_damage_taken(self, event: GameEvent) -> None:
-        """Handle player taking damage (DAMAGE_TAKEN: -1.0 × damage)."""
+        """Handle player taking damage.
+
+        - Melee:     -0.01 × damage
+        - Projectile: -1.0 × damage
+        """
         damage = event.data.get('damage', 0.0) if event.data else 0.0
         if damage > 0:
-            self.accumulated_reward -= 1.0 * damage
+            source = event.data.get('source', 'melee') if event.data else 'melee'
+            multiplier = 0.01 if source == 'melee' else 1.0
+            self.accumulated_reward -= multiplier * damage
             self.last_event = "TOOK DAMAGE!"
 
     def _on_agent_died(self, event: GameEvent) -> None:
@@ -106,7 +113,7 @@ class RewardCalculator:
 
     def _on_all_enemies_dead(self, event: GameEvent) -> None:
         """Handle all enemies killed event (victory)."""
-        self.accumulated_reward += 300.0
+        self.accumulated_reward += 400.0
         self.last_event = "VICTORY!"
         self._episode_done = True
         self._win = True

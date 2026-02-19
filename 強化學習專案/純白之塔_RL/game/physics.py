@@ -175,13 +175,6 @@ class PhysicsSystem:
                 item.despawn()
                 collected.append(item)
 
-                self.event_bus.publish(GameEvent(
-                    EventType.ITEM_COLLECTED,
-                    source_entity=collector,
-                    target_entity=item,
-                    data={'item_type': item.entity_type}
-                ))
-
         return collected
 
     def get_distance(self, entity1: Entity, entity2: Entity) -> float:
