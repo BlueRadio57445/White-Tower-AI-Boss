@@ -15,6 +15,7 @@ from ai.agent import HybridPPOAgent
 from ai.features import FeatureExtractor
 from ai.reward import RewardCalculator
 from ai.export import WeightExporter
+from training.mask_loader import ActionMaskLoader
 
 
 @dataclass
@@ -66,6 +67,11 @@ class Trainer:
         self.history: List[float] = []
         self.renderer = None
 
+        # Curriculum mask: restricts which actions are allowed this training stage.
+        # Combined with world mask (cooldown/casting) in _run_episode.
+        # None means no restriction (all actions allowed).
+        self._curriculum_mask: Optional[np.ndarray] = None
+
         # Initialize Pygame renderer if enabled
         if self.config.use_pygame:
             try:
@@ -90,6 +96,20 @@ class Trainer:
         )
         self.feature_extractor = FeatureExtractor(self.config.world_size)
         self.reward_calculator = RewardCalculator(self.world.event_bus)
+
+    def set_curriculum_mask(self, mask: Optional[np.ndarray]) -> None:
+        """
+        Set the curriculum action mask for the current training stage.
+
+        This mask restricts which actions the agent may choose, independent
+        of the world's cooldown/casting mask. The two masks are combined
+        (AND logic) before being passed to the agent.
+
+        Args:
+            mask: Float array of shape (n_discrete_actions,), 1.0=allowed 0.0=blocked.
+                  Pass None to remove all restrictions.
+        """
+        self._curriculum_mask = mask
 
     def train(
         self,
@@ -162,6 +182,10 @@ class Trainer:
 
             # Get action mask from world (blocks skills on cooldown / while casting)
             action_mask = self.world.get_action_mask()
+
+            # Combine with curriculum mask if one is set
+            if self._curriculum_mask is not None:
+                action_mask = ActionMaskLoader.combine(action_mask, self._curriculum_mask)
 
             # Get action from agent
             a_d, aim_values, prob_d, mus, v, logits = self.agent.get_action(obs, action_mask)

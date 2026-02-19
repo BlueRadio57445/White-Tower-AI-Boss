@@ -1,0 +1,5 @@
+{
+    "name": "movement_only",
+    "description": "只允許移動，禁止所有技能。用於基礎移動訓練。",
+    "allowed_actions": [0, 1, 2, 3]
+}

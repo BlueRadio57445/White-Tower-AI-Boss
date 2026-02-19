@@ -1,0 +1,5 @@
+{
+    "name": "hammer_only",
+    "description": "允許移動 + 鐵錘 (RECTANGLE)。專門訓練 aim_actor[1] 的瞄準能力。",
+    "allowed_actions": [0, 1, 2, 3, 6]
+}
