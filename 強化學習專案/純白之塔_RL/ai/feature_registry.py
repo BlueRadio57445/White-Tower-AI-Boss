@@ -20,10 +20,12 @@ Current groups and dimensions:
     monster_dist              4D   distance to each monster (nearest first)
     monster_dx_dy             8D   (dx, dy) to each monster (nearest first)
     monster_relative_angle    4D   relative angle to each monster (nearest first)
+    monster_angle_sincos      8D   (sin, cos) of relative angle to each monster (nearest first)
     monster_all              16D   all monster features grouped by type (dist ×4, dx_dy ×4, angle ×4)
     blood_pack_dist           3D   distance to each blood pack (nearest first)
     blood_pack_dx_dy          6D   (dx, dy) to each blood pack (nearest first)
     blood_pack_relative_angle 3D   relative angle to each blood pack (nearest first)
+    blood_pack_angle_sincos   6D   (sin, cos) of relative angle to each blood pack (nearest first)
     blood_pack_all           12D   all blood pack features grouped by type (dist ×3, dx_dy ×3, angle ×3)
     player_facing             2D   (cos, sin) of player facing angle
     wall_dist                 1D   distance to wall in facing direction
@@ -190,6 +192,18 @@ def monster_relative_angle(world: GameWorld, world_size: float) -> np.ndarray:
     return np.array([d[3] for d in data])
 
 
+@feature_group("monster_angle_sincos", n_dims=8)
+def monster_angle_sincos(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Sin/cos decomposition of relative angle to each monster (nearest first). 8D.
+    Output: [sin1,cos1, sin2,cos2, sin3,cos3, sin4,cos4]
+    Avoids the ±π discontinuity of raw angles.
+    cos(angle) encodes how "ahead" the monster is; sin(angle) encodes left/right offset.
+    """
+    data = _get_sorted_monster_data(world, world_size)
+    return np.array([v for d in data for v in (np.sin(d[3]), np.cos(d[3]))])
+
+
 @feature_group("blood_pack_dist", n_dims=3)
 def blood_pack_dist(world: GameWorld, world_size: float) -> np.ndarray:
     """Distance to each blood pack (nearest first). 3D."""
@@ -209,6 +223,17 @@ def blood_pack_relative_angle(world: GameWorld, world_size: float) -> np.ndarray
     """Relative angle to each blood pack (nearest first). 3D."""
     data = _get_sorted_blood_pack_data(world, world_size)
     return np.array([d[3] for d in data])
+
+
+@feature_group("blood_pack_angle_sincos", n_dims=6)
+def blood_pack_angle_sincos(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Sin/cos decomposition of relative angle to each blood pack (nearest first). 6D.
+    Output: [sin1,cos1, sin2,cos2, sin3,cos3]
+    Avoids the ±π discontinuity of raw angles.
+    """
+    data = _get_sorted_blood_pack_data(world, world_size)
+    return np.array([v for d in data for v in (np.sin(d[3]), np.cos(d[3]))])
 
 
 @feature_group("blood_pack_all", n_dims=12)
