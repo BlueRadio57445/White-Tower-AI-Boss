@@ -17,23 +17,21 @@ SelectiveFeatureExtractor takes a list of group names and builds the
 corresponding feature vector by concatenating their outputs.
 
 Current groups and dimensions:
-    monster_dist           4D   distance to each monster (sorted)
-    monster_dx_dy          8D   (dx, dy) to each monster (sorted)
-    monster_relative_angle 4D   relative angle to each monster (sorted)
-    blood_dist             1D   distance to nearest blood pack
-    blood_dx_dy            2D   (dx, dy) to nearest blood pack
-    blood_relative_angle   1D   relative angle to nearest blood pack
-    blood_pack_dist        3D   distance to each blood pack (nearest first)
-    blood_pack_dx_dy       6D   (dx, dy) to each blood pack (nearest first)
-    blood_pack_relative_angle 3D  relative angle to each blood pack (nearest first)
-    blood_pack_all         12D  all blood pack features interleaved (dx,dy,dist,angle ×3)
-    player_facing          2D   (cos, sin) of player facing angle
-    wall_dist              1D   distance to wall in facing direction
-    casting_info           2D   (casting_progress, ready_to_cast)
-    player_health          1D   player health ratio (0-1)
-    bias                   1D   constant 1.0
+    monster_dist              4D   distance to each monster (nearest first)
+    monster_dx_dy             8D   (dx, dy) to each monster (nearest first)
+    monster_relative_angle    4D   relative angle to each monster (nearest first)
+    monster_all              16D   all monster features grouped by type (dist ×4, dx_dy ×4, angle ×4)
+    blood_pack_dist           3D   distance to each blood pack (nearest first)
+    blood_pack_dx_dy          6D   (dx, dy) to each blood pack (nearest first)
+    blood_pack_relative_angle 3D   relative angle to each blood pack (nearest first)
+    blood_pack_all           12D   all blood pack features grouped by type (dist ×3, dx_dy ×3, angle ×3)
+    player_facing             2D   (cos, sin) of player facing angle
+    wall_dist                 1D   distance to wall in facing direction
+    casting_info              2D   (casting_progress, ready_to_cast)
+    player_health             1D   player health ratio (0-1)
+    bias                      1D   constant 1.0
     -------------------------------------------------------
-    ALL GROUPS             27D  (same total as FeatureExtractor)
+    ALL GROUPS               35D   (DEFAULT_GROUP_ORDER total)
 """
 
 from dataclasses import dataclass
@@ -92,7 +90,7 @@ def _get_sorted_monster_data(world: GameWorld, world_size: float):
     """
     Compute and sort monster data by distance (nearest first).
 
-    Returns list of (dx, dy, dist, rel_angle) tuples,
+    Returns list of (dist, dx, dy, rel_angle) tuples,
     zero-padded to MAX_MONSTERS entries.
     """
     player_pos = world.get_player_position()
@@ -192,38 +190,6 @@ def monster_relative_angle(world: GameWorld, world_size: float) -> np.ndarray:
     return np.array([d[3] for d in data])
 
 
-@feature_group("blood_dist", n_dims=1)
-def blood_dist(world: GameWorld, world_size: float) -> np.ndarray:
-    """Distance to nearest blood pack. 1D."""
-    player_pos = world.get_player_position()
-    blood_pos = world.get_blood_pack_position()
-    dist = np.linalg.norm(blood_pos - player_pos) / world_size
-    return np.array([dist])
-
-
-@feature_group("blood_dx_dy", n_dims=2)
-def blood_dx_dy(world: GameWorld, world_size: float) -> np.ndarray:
-    """Relative (dx, dy) to nearest blood pack. 2D."""
-    player_pos = world.get_player_position()
-    blood_pos = world.get_blood_pack_position()
-    rel = (blood_pos - player_pos) / world_size
-    return np.array([rel[0], rel[1]])
-
-
-@feature_group("blood_relative_angle", n_dims=1)
-def blood_relative_angle(world: GameWorld, world_size: float) -> np.ndarray:
-    """Relative angle to nearest blood pack. 1D."""
-    player_pos = world.get_player_position()
-    player_angle = world.get_player_angle()
-    blood_pos = world.get_blood_pack_position()
-    angle_to = np.arctan2(blood_pos[1] - player_pos[1], blood_pos[0] - player_pos[0])
-    rel_angle = np.arctan2(
-        np.sin(angle_to - player_angle),
-        np.cos(angle_to - player_angle)
-    )
-    return np.array([rel_angle])
-
-
 @feature_group("blood_pack_dist", n_dims=3)
 def blood_pack_dist(world: GameWorld, world_size: float) -> np.ndarray:
     """Distance to each blood pack (nearest first). 3D."""
@@ -248,11 +214,15 @@ def blood_pack_relative_angle(world: GameWorld, world_size: float) -> np.ndarray
 @feature_group("blood_pack_all", n_dims=12)
 def blood_pack_all(world: GameWorld, world_size: float) -> np.ndarray:
     """
-    All blood pack features in interleaved format. 12D.
-    Output: [dx1,dy1,dist1,angle1, dx2,dy2,dist2,angle2, dx3,dy3,dist3,angle3] (nearest first)
+    All blood pack features grouped by type. 12D.
+    Output: [dist1..3, dx1,dy1..dx3,dy3, angle1..3]
+    Equivalent to blood_pack_dist + blood_pack_dx_dy + blood_pack_relative_angle.
     """
     data = _get_sorted_blood_pack_data(world, world_size)
-    return np.array([v for d in data for v in (d[1], d[2], d[0], d[3])])
+    dists  = np.array([d[0] for d in data])
+    dx_dys = np.array([v for d in data for v in (d[1], d[2])])
+    angles = np.array([d[3] for d in data])
+    return np.concatenate([dists, dx_dys, angles])
 
 
 @feature_group("player_facing", n_dims=2)
@@ -295,36 +265,33 @@ def bias(world: GameWorld, world_size: float) -> np.ndarray:
 @feature_group("monster_all", n_dims=16)
 def monster_all(world: GameWorld, world_size: float) -> np.ndarray:
     """
-    All monster features in the original interleaved format. 16D.
-    Output: [dx1,dy1,dist1,angle1, dx2,dy2,dist2,angle2, ...] (nearest first)
+    All monster features grouped by type. 16D.
+    Output: [dist1..4, dx1,dy1..dx4,dy4, angle1..4]
+    Equivalent to monster_dist + monster_dx_dy + monster_relative_angle.
 
-    Use this group in DEFAULT_GROUP_ORDER to reproduce the original 27D vector
-    and maintain backward compatibility with saved weights.
     For FSS, prefer the fine-grained groups (monster_dist, monster_dx_dy, etc.)
     which let you test each feature type independently.
     """
     data = _get_sorted_monster_data(world, world_size)
-    # Each entry: (dist, dx, dy, rel_angle) → output as [dx, dy, dist, angle]
-    return np.array([v for d in data for v in (d[1], d[2], d[0], d[3])])
+    dists  = np.array([d[0] for d in data])
+    dx_dys = np.array([v for d in data for v in (d[1], d[2])])
+    angles = np.array([d[3] for d in data])
+    return np.concatenate([dists, dx_dys, angles])
 
 
 # ---------------------------------------------------------------------------
 # Selective extractor
 # ---------------------------------------------------------------------------
 
-# Default group order that reproduces the exact original 27D vector.
-# Uses monster_all (interleaved format) for backward compat with weights.json.
 DEFAULT_GROUP_ORDER = [
-    "monster_all",          # 16D  [dx1,dy1,dist1,angle1, dx2,...] interleaved
-    "blood_dx_dy",          # 2D
-    "blood_dist",           # 1D
-    "blood_relative_angle", # 1D
+    "monster_all",          # 16D  [dist1,dx1,dy1,angle1, ...] interleaved
+    "blood_pack_all",       # 12D  [dist1,dx1,dy1,angle1, ...] interleaved
     "player_facing",        # 2D
     "wall_dist",            # 1D
     "casting_info",         # 2D
     "player_health",        # 1D
     "bias",                 # 1D
-]                           # total = 27D
+]                           # total = 35D
 
 
 class SelectiveFeatureExtractor:
