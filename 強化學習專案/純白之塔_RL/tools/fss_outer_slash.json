@@ -1,0 +1,31 @@
+{
+    "fixed_groups": ["bias"],
+    "candidate_groups": [
+        "monster_dist",
+        "monster_dx_dy",
+        "monster_relative_angle",
+        "blood_dist",
+        "blood_dx_dy",
+        "blood_relative_angle",
+        "player_facing",
+        "wall_dist",
+        "casting_info",
+        "player_health"
+    ],
+    "curriculum": "curricula/outer_slash_training.json",
+    "eval_epochs": 1500,
+    "steps_per_epoch": 400,
+    "eval_window": 50,
+    "output": "fss_results_outer_slash.json",
+
+    "注意": "以下是 PPO 超參數，可選填，不填則使用訓練預設值",
+    "gamma": 0.99,
+    "lmbda": 0.95,
+    "epsilon": 0.2,
+    "sigma_init": 0.6,
+    "sigma_min": 0.15,
+    "sigma_decay": 0.9998,
+    "lr_actor_discrete": 0.003,
+    "lr_actor_continuous": 0.002,
+    "lr_critic": 0.007
+}
