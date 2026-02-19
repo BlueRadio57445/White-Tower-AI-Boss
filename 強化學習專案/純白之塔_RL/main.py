@@ -20,6 +20,7 @@ import numpy as np
 
 from training.trainer import Trainer, TrainingConfig
 from ai.export import WeightExporter
+from training.level_config import LevelLoader
 
 
 def parse_args():
@@ -68,6 +69,10 @@ def parse_args():
         '--dev', action='store_true',
         help='Run in developer mode (keyboard control for debugging)'
     )
+    parser.add_argument(
+        '--level', type=str, default=None, dest='level_path',
+        help='Path to a level JSON file (e.g. levels/01_one_stationary.json)'
+    )
 
     return parser.parse_args()
 
@@ -87,14 +92,23 @@ def main():
     config = TrainingConfig(
         epochs=args.epochs,
         steps_per_epoch=args.steps,
-        render_last_n=0 if args.no_render else 10,
+        render_last_n=0 if args.no_render else 1,
         export_weights=not args.no_export,
         export_path=args.export,
         use_pygame=not args.ascii
     )
 
+    # Load level config if --level is specified
+    level_config = None
+    if args.level_path:
+        if not os.path.exists(args.level_path):
+            print(f"Error: Level file not found: {args.level_path}")
+            return
+        level_config = LevelLoader.from_json(args.level_path)
+        print(f"Loaded level: {level_config.name or level_config.id} ({args.level_path})")
+
     # Create trainer
-    trainer = Trainer(config)
+    trainer = Trainer(config, level_config=level_config)
 
     # Load existing weights if --continue is specified
     if args.continue_training:

@@ -56,7 +56,7 @@ class AdaptiveBehavior(MonsterBehavior):
         # HitAndRunBehavior 參數（名稱與原類別完全一致）
         flee_distance: float = 6.0,
         safe_distance: float = 7.0,
-        flee_duration: int = 30,
+        flee_duration: int = 10,
         **kwargs
     ):
         super().__init__(**kwargs)

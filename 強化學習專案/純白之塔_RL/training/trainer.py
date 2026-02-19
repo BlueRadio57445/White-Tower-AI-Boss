@@ -52,14 +52,17 @@ class Trainer:
     Manages the training loop for the RL agent.
     """
 
-    def __init__(self, config: Optional[TrainingConfig] = None):
+    def __init__(self, config: Optional[TrainingConfig] = None, level_config=None):
         """
         Initialize the trainer.
 
         Args:
             config: Training configuration
+            level_config: Optional LevelConfig to use for all episodes.
+                          If None, GameWorld uses its hardcoded default level.
         """
         self.config = config or TrainingConfig()
+        self.level_config = level_config
         self.history: List[float] = []
         self.renderer = None
 
@@ -149,7 +152,7 @@ class Trainer:
         action_names: List[str]
     ) -> float:
         """Run a single training episode."""
-        self.world.reset()
+        self.world.reset(self.level_config)
         self.reward_calculator.reset()
         total_reward = 0.0
 

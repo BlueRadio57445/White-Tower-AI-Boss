@@ -1,0 +1,59 @@
+{
+  "id": "11_standard",
+  "name": "第十一關：標準關卡（預設配置）",
+  "room": { "size": 10.0 },
+  "player": { "x": 2.0, "y": 5.0, "angle": 3.14159 },
+  "monsters": [
+    {
+      "x": 2.0, "y": 2.0, "health": 100.0,
+      "behavior": {
+        "type": "berserker",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "sprint_threshold": 5.0
+      }
+    },
+    {
+      "x": 8.0, "y": 2.0, "health": 100.0,
+      "behavior": {
+        "type": "hit_and_run",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "flee_distance": 6.0,
+        "safe_distance": 7.0,
+        "flee_duration": 10
+      }
+    },
+    {
+      "x": 2.0, "y": 8.0, "health": 100.0,
+      "behavior": {
+        "type": "orbit_melee",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "target_radius": 2.5, 
+        "radius_tolerance": 1.0,
+        "clockwise": false,
+        "strafe_while_approaching": true
+      }
+    },
+    {
+      "x": 8.0, "y": 8.0, "health": 100.0,
+      "behavior": {
+        "type": "orbit_ranged",
+        "attack_damage": 10.0,
+        "attack_cooldown_ticks": 30,
+        "target_radius": 6.0, 
+        "radius_tolerance": 1.5,
+        "danger_radius": 4.0,
+        "clockwise": true,
+        "weapon_type": "bow"
+      }
+    }
+  ],
+  "blood_packs": [
+    { "x": 5.0, "y": 8.0, "heal_amount": 30.0 }
+  ]
+}

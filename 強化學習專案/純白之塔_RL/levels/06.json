@@ -1,0 +1,59 @@
+{
+  "id": "06_four_backstab",
+  "name": "第六關：四隻繞背",
+  "room": { "size": 10.0 },
+  "player": { "x": 7.0, "y": 1.0, "angle": 3.14159 },
+  "monsters": [
+    {
+      "x": 6.0, "y": 8.0, "health": 100.0,
+      "behavior": {
+        "type": "backstab",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "backstab_distance": 2.0,
+        "backstab_tolerance": 0.7,
+        "approach_sprint_threshold": 5.0
+      }
+    },
+    {
+      "x": 4.0, "y": 2.0, "health": 100.0,
+      "behavior": {
+        "type": "backstab",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "backstab_distance": 2.0,
+        "backstab_tolerance": 0.7,
+        "approach_sprint_threshold": 5.0
+      }
+    },
+    {
+      "x": 6.0, "y": 3.0, "health": 100.0,
+      "behavior": {
+        "type": "backstab",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "backstab_distance": 2.0,
+        "backstab_tolerance": 0.7,
+        "approach_sprint_threshold": 5.0
+      }
+    },
+    {
+      "x": 8.0, "y": 9.0, "health": 100.0,
+      "behavior": {
+        "type": "backstab",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "backstab_distance": 2.0,
+        "backstab_tolerance": 0.7,
+        "approach_sprint_threshold": 5.0
+      }
+    }
+  ],
+  "blood_packs": [
+    { "x": 1.0, "y": 4.0, "heal_amount": 30.0 }
+  ]
+}

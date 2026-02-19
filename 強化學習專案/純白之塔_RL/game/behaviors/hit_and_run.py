@@ -43,7 +43,7 @@ class HitAndRunBehavior(MonsterBehavior):
         self,
         flee_distance: float = 6.0,     # 逃到這個距離才停
         safe_distance: float = 7.0,     # 超過這個距離開始接近
-        flee_duration: int = 30,        # 逃跑最少持續的 ticks
+        flee_duration: int = 10,        # 逃跑最少持續的 ticks
         **kwargs
     ):
         super().__init__(**kwargs)

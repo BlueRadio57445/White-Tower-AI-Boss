@@ -1,0 +1,71 @@
+{
+  "id": "11_standard",
+  "name": "第十二關：標準關卡二",
+  "room": { "size": 10.0 },
+  "player": { "x": 2.0, "y": 5.0, "angle": 3.14159 },
+  "monsters": [
+    {
+      "x": 2.0, "y": 2.0, "health": 100.0,
+      "behavior": {
+        "type": "adaptive",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "aggressive_threshold": 0.7,
+        "cautious_threshold": 0.4,
+        "sprint_threshold": 5.0,
+        "target_radius": 2.5, 
+        "radius_tolerance": 1.0,
+        "clockwise": true,
+        "strafe_while_approaching": true,
+        "flee_distance": 6.0,
+        "safe_distance": 7.0,
+        "flee_duration": 10
+      }
+    },
+    {
+      "x": 8.0, "y": 2.0, "health": 100.0,
+      "behavior": {
+        "type": "backstab",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "backstab_distance": 2.0,
+        "backstab_tolerance": 0.7,
+        "approach_sprint_threshold": 5.0
+      }
+    },
+    {
+      "x": 2.0, "y": 8.0, "health": 100.0,
+      "behavior": {
+        "type": "opportunist",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "safe_radius": 5.0,
+        "radius_tolerance": 1.0,
+        "clockwise": true,
+        "casting_trigger": 0.1,
+        "retreat_distance": 5.0
+      }
+    },
+    {
+      "x": 8.0, "y": 8.0, "health": 100.0,
+      "behavior": {
+        "type": "blood_pack_disruptor_ranged",
+        "attack_damage": 10.0,
+        "attack_cooldown_ticks": 30,
+        "target_radius": 6.0, 
+        "radius_tolerance": 1.5,
+        "danger_radius": 4.0,
+        "clockwise": false,
+        "weapon_type": "bow",
+        "guard_radius": 1.5,
+        "attack_while_guarding": true
+      }
+    }
+  ],
+  "blood_packs": [
+    { "x": 5.0, "y": 8.0, "heal_amount": 30.0 }
+  ]
+}

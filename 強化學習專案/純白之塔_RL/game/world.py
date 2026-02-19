@@ -92,8 +92,14 @@ class GameWorld:
         # World state
         self.tick_count: int = 0
 
-    def reset(self) -> None:
-        """Reset the world to initial state."""
+    def reset(self, level_config=None) -> None:
+        """
+        Reset the world to initial state.
+
+        Args:
+            level_config: Optional LevelConfig to override default spawns.
+                          If None, uses hardcoded default setup.
+        """
         self.entities.clear()
         self.monsters.clear()
         self.items.clear()
@@ -102,18 +108,28 @@ class GameWorld:
         EntityFactory.reset_id_counter()
         self.projectile_manager.clear()
 
-        # Create player
+        if level_config is not None:
+            self._reset_from_level(level_config)
+        else:
+            self._reset_default()
+
+        # Publish episode start
+        self.event_bus.publish(GameEvent(
+            EventType.EPISODE_START,
+            data={'tick': 0}
+        ))
+
+    def _reset_default(self) -> None:
+        """Reset using hardcoded default level (4 monsters, 1 blood pack)."""
         px, py = self.room.spawn_points.get('player', (1.0, 1.0))
         self.player = Player(self.player_config)
         player_entity = self.player.spawn(px, py)
         self.entities.append(player_entity)
 
-        # Create monsters (4 monsters with different behaviors)
         monster_spawns = self.room.spawn_points.get(
             'monsters', [(2.0, 2.0), (8.0, 2.0), (2.0, 8.0), (8.0, 8.0)]
         )
 
-        # Default behaviors for each monster (simulating different player types)
         default_behaviors = [
             BerserkerBehavior(),                              # 狂戰士：正面衝鋒
             HitAndRunBehavior(),                              # 偷傷害：打一下就跑
@@ -127,17 +143,40 @@ class GameWorld:
             self.monsters.append(monster)
             self.entities.append(monster)
 
-        # Create initial blood pack
         bx, by = self.room.spawn_points.get('blood_pack', (5.0, 8.0))
         blood = EntityFactory.create_blood_pack(bx, by)
         self.items.append(blood)
         self.entities.append(blood)
 
-        # Publish episode start
-        self.event_bus.publish(GameEvent(
-            EventType.EPISODE_START,
-            data={'tick': 0}
-        ))
+    def _reset_from_level(self, level_config) -> None:
+        """Reset using a LevelConfig loaded from JSON."""
+        # Spawn player
+        self.player = Player(self.player_config)
+        player_entity = self.player.spawn(level_config.player_x, level_config.player_y)
+        player_entity.position.angle = level_config.player_angle
+        self.entities.append(player_entity)
+
+        # Spawn monsters
+        for m in level_config.monsters:
+            behavior = BehaviorRegistry.from_dict(m["behavior"])
+            monster = EntityFactory.create_monster(
+                x=float(m["x"]),
+                y=float(m["y"]),
+                health=float(m.get("health", 100.0)),
+                movement_behavior=behavior
+            )
+            self.monsters.append(monster)
+            self.entities.append(monster)
+
+        # Spawn blood packs
+        for bp in level_config.blood_packs:
+            blood = EntityFactory.create_blood_pack(
+                x=float(bp["x"]),
+                y=float(bp["y"]),
+                heal_amount=float(bp.get("heal_amount", 30.0))
+            )
+            self.items.append(blood)
+            self.entities.append(blood)
 
     def tick(self) -> None:
         """Execute one game tick."""
