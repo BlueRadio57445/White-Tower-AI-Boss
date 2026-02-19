@@ -4,6 +4,7 @@
         "monster_dist",
         "monster_dx_dy",
         "monster_relative_angle",
+        "monster_health",
         "monster_angle_sincos",
         "blood_pack_dist",
         "blood_pack_dx_dy",

@@ -20,6 +20,7 @@ Current groups and dimensions:
     monster_dist              4D   distance to each monster (nearest first)
     monster_dx_dy             8D   (dx, dy) to each monster (nearest first)
     monster_relative_angle    4D   relative angle to each monster (nearest first)
+    monster_health            4D   health ratio of each monster (nearest first)
     monster_angle_sincos      8D   (sin, cos) of relative angle to each monster (nearest first)
     monster_all              16D   all monster features grouped by type (dist ×4, dx_dy ×4, angle ×4)
     blood_pack_dist           3D   distance to each blood pack (nearest first)
@@ -92,15 +93,14 @@ def _get_sorted_monster_data(world: GameWorld, world_size: float):
     """
     Compute and sort monster data by distance (nearest first).
 
-    Returns list of (dist, dx, dy, rel_angle) tuples,
+    Returns list of (dist, dx, dy, rel_angle, health_ratio) tuples,
     zero-padded to MAX_MONSTERS entries.
     """
     player_pos = world.get_player_position()
     player_angle = world.get_player_angle()
-    monster_positions = world.get_alive_monster_positions()
 
     data = []
-    for pos in monster_positions:
+    for pos, health_ratio in world.get_alive_monster_positions_and_health():
         dx = (pos[0] - player_pos[0]) / world_size
         dy = (pos[1] - player_pos[1]) / world_size
         dist = np.linalg.norm(pos - player_pos) / world_size
@@ -109,13 +109,13 @@ def _get_sorted_monster_data(world: GameWorld, world_size: float):
             np.sin(angle_to - player_angle),
             np.cos(angle_to - player_angle)
         )
-        data.append((dist, dx, dy, rel_angle))
+        data.append((dist, dx, dy, rel_angle, health_ratio))
 
     data.sort(key=lambda x: x[0])
 
     # Zero-pad
     while len(data) < MAX_MONSTERS:
-        data.append((0.0, 0.0, 0.0, 0.0))
+        data.append((0.0, 0.0, 0.0, 0.0, 0.0))
 
     return data[:MAX_MONSTERS]
 
@@ -190,6 +190,13 @@ def monster_relative_angle(world: GameWorld, world_size: float) -> np.ndarray:
     """Relative angle to each monster (nearest first). 4D."""
     data = _get_sorted_monster_data(world, world_size)
     return np.array([d[3] for d in data])
+
+
+@feature_group("monster_health", n_dims=4)
+def monster_health(world: GameWorld, world_size: float) -> np.ndarray:
+    """Health ratio of each monster (nearest first). 4D. (0.0 = dead, 1.0 = full hp)"""
+    data = _get_sorted_monster_data(world, world_size)
+    return np.array([d[4] for d in data])
 
 
 @feature_group("monster_angle_sincos", n_dims=8)

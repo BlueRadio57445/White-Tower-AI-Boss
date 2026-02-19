@@ -454,6 +454,14 @@ class GameWorld:
                 positions.append(monster.position.as_array())
         return positions
 
+    def get_alive_monster_positions_and_health(self) -> List[tuple]:
+        """Get (position, health_ratio) for all alive monsters."""
+        result = []
+        for monster in self.monsters:
+            if monster.is_alive and monster.has_position():
+                result.append((monster.position.as_array(), monster.health.percentage))
+        return result
+
     def get_alive_blood_pack_positions(self) -> List[np.ndarray]:
         """Get positions of all alive blood packs."""
         positions = []
