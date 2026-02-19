@@ -44,8 +44,8 @@ class AdaptiveBehavior(MonsterBehavior):
 
     def __init__(
         self,
-        aggressive_threshold: float = 0.6,     # 超過此血量比例為激進模式
-        cautious_threshold: float = 0.3,        # 低於此血量比例為絕境模式
+        aggressive_threshold: float = 0.7,     # 超過此血量比例為激進模式
+        cautious_threshold: float = 0.4,        # 低於此血量比例為絕境模式
         # BerserkerBehavior 參數（名稱與原類別完全一致）
         sprint_threshold: float = 5.0,
         # OrbitMeleeBehavior 參數（名稱與原類別完全一致）
@@ -59,9 +59,6 @@ class AdaptiveBehavior(MonsterBehavior):
         flee_duration: int = 30,
         **kwargs
     ):
-        kwargs.setdefault("attack_range", 3.0)
-        kwargs.setdefault("attack_damage", 12.0)
-        kwargs.setdefault("attack_cooldown_ticks", 20)
         super().__init__(**kwargs)
 
         self.aggressive_threshold = aggressive_threshold
