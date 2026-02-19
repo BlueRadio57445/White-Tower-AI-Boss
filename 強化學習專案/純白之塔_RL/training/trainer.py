@@ -146,7 +146,7 @@ class Trainer:
         print("Starting 2D Training... Squared Probability PPO Ready.")
         print(f"Discrete actions: {', '.join(action_names)}")
         print("Continuous actions: aim_missile, aim_hammer, aim_dash_direction, aim_dash_facing, aim_claw, aim_palm")
-        print(f"Features: {self.config.n_features} dimensions")
+        print(f"Features: {self.feature_extractor.n_features} dimensions")
         print("Advantage: No dead neurons, only uses +, -, *, /")
         print()
 
@@ -172,11 +172,12 @@ class Trainer:
                     )
                     _last_stage_label = current_stage.label
 
-            total_reward = self._run_episode(
+            ep = self._run_episode(
                 epoch,
                 render and epoch >= self.config.epochs - self.config.render_last_n,
                 action_names
             )
+            total_reward = ep["reward"]
 
             self.history.append(total_reward)
 
@@ -199,8 +200,13 @@ class Trainer:
         epoch: int,
         render: bool,
         action_names: List[str]
-    ) -> float:
-        """Run a single training episode."""
+    ) -> dict:
+        """
+        Run a single training episode.
+
+        Returns dict with keys:
+            reward, steps, termination, level_id, action_counts
+        """
         # Curriculum overrides level and mask when the epoch is covered
         if self.curriculum is not None and self.curriculum.covers_epoch(epoch):
             episode_level = self.curriculum.get_level_config(epoch)
@@ -211,6 +217,7 @@ class Trainer:
         self.world.reset(episode_level)
         self.reward_calculator.reset()
         total_reward = 0.0
+        action_counts = [0] * self.config.n_discrete_actions
 
         for step in range(self.config.steps_per_epoch):
             # Get observation
@@ -225,6 +232,7 @@ class Trainer:
 
             # Get action from agent
             a_d, aim_values, prob_d, mus, v, logits = self.agent.get_action(obs, action_mask)
+            action_counts[a_d] += 1
 
             # Get the relevant aim value for the selected action
             aim_for_action = self.agent.get_aim_value_for_action(a_d, aim_values)
@@ -251,6 +259,15 @@ class Trainer:
             if self.reward_calculator.is_episode_done():
                 break
 
+        # Determine termination reason
+        if self.reward_calculator.is_episode_done():
+            termination = "victory" if self.reward_calculator.is_win() else "died"
+        else:
+            termination = "timeout"
+
+        # Level id for logging
+        level_id = getattr(episode_level, "id", "default") if episode_level else "default"
+
         # Update agent
         self.agent.update(
             lr_actor_discrete=self.config.lr_actor_discrete,
@@ -258,7 +275,13 @@ class Trainer:
             lr_critic=self.config.lr_critic
         )
 
-        return total_reward
+        return {
+            "reward":        total_reward,
+            "steps":         step + 1,
+            "termination":   termination,
+            "level_id":      level_id,
+            "action_counts": action_counts,
+        }
 
     def _render(
         self,

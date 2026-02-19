@@ -78,7 +78,6 @@ def parse_args():
         '--curriculum', type=str, default=None, dest='curriculum_path',
         help='Path to a curriculum JSON file (e.g. curricula/missile_training.json). Cannot be combined with --level.'
     )
-
     return parser.parse_args()
 
 

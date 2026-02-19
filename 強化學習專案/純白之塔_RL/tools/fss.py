@@ -34,6 +34,7 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -88,6 +89,26 @@ def _evaluate(
 
 
 # ---------------------------------------------------------------------------
+# JSONL logger
+# ---------------------------------------------------------------------------
+
+class _FSSLog:
+    """Append-only JSONL writer for FSS progress."""
+
+    def __init__(self, path: str):
+        self._f = open(path, 'w', encoding='utf-8')
+        print(f"FSS log: {path}")
+
+    def write(self, event: str, **kwargs) -> None:
+        record = {"event": event, "ts": round(time.time(), 2), **kwargs}
+        self._f.write(json.dumps(record, ensure_ascii=False) + '\n')
+        self._f.flush()
+
+    def close(self) -> None:
+        self._f.close()
+
+
+# ---------------------------------------------------------------------------
 # FSS algorithm
 # ---------------------------------------------------------------------------
 
@@ -118,6 +139,13 @@ def run_fss(config_path: str) -> dict:
     candidates = list(cfg["candidate_groups"])
     remaining = [c for c in candidates if c not in fixed]
 
+    # Derive log path from output path (replace .json → .jsonl)
+    output_path = cfg.get("output", "fss_results.json")
+    if not os.path.isabs(output_path):
+        output_path = os.path.join(_PROJECT_DIR, output_path)
+    log_path = str(Path(output_path).with_suffix(".jsonl"))
+    log = _FSSLog(log_path)
+
     print("\n" + "=" * 60)
     print("Forward Stepwise Selection")
     print("=" * 60)
@@ -128,14 +156,24 @@ def run_fss(config_path: str) -> dict:
     print(f"Eval window    : {cfg.get('eval_window', 50)}")
     print()
 
+    log.write("start",
+              fixed_groups=fixed,
+              candidates=remaining,
+              eval_epochs=cfg["eval_epochs"],
+              eval_window=cfg.get("eval_window", 50),
+              curriculum=cfg["curriculum"])
+
     steps = []
 
     # Initial baseline score
     print("Computing baseline score...")
     t0 = time.time()
     current_score = _evaluate(fixed, curriculum, cfg)
-    print(f"Baseline  fixed={fixed}  score={current_score:.3f}  "
-          f"({time.time()-t0:.1f}s)")
+    elapsed = time.time() - t0
+    print(f"Baseline  fixed={fixed}  score={current_score:.3f}  ({elapsed:.1f}s)")
+    log.write("baseline", groups=fixed, score=round(current_score, 4),
+              n_features=SelectiveFeatureExtractor(fixed).n_features,
+              elapsed_s=round(elapsed, 1))
 
     step = 0
     while remaining:
@@ -153,12 +191,20 @@ def run_fss(config_path: str) -> dict:
             elapsed = time.time() - t0
             marker = " *" if score > best_score else ""
             print(f"  + {candidate:<30} score={score:.3f}  ({elapsed:.1f}s){marker}")
+            log.write("eval",
+                      step=step,
+                      candidate=candidate,
+                      trial_groups=trial,
+                      score=round(score, 4),
+                      n_features=SelectiveFeatureExtractor(trial).n_features,
+                      elapsed_s=round(elapsed, 1))
             if score > best_score:
                 best_score = score
                 best_candidate = candidate
 
         if best_candidate is None:
             print(f"\nNo candidate improved baseline ({current_score:.3f}). Stopping.")
+            log.write("no_improvement", step=step, baseline_score=round(current_score, 4))
             break
 
         fixed.append(best_candidate)
@@ -172,6 +218,12 @@ def run_fss(config_path: str) -> dict:
             "selected_so_far": list(fixed),
         })
         current_score = best_score
+        log.write("added",
+                  step=step,
+                  group=best_candidate,
+                  score=round(current_score, 4),
+                  n_features=extractor_tmp.n_features,
+                  selected=list(fixed))
         print(f"\n→ Added: '{best_candidate}'  "
               f"new score={current_score:.3f}  "
               f"total dims={extractor_tmp.n_features}")
@@ -194,13 +246,18 @@ def run_fss(config_path: str) -> dict:
         "total_dims": final_extractor.n_features,
     }
 
+    log.write("done",
+              selected_groups=fixed,
+              final_score=round(current_score, 4),
+              total_dims=final_extractor.n_features)
+    log.close()
+
     # Save results
-    output_path = cfg.get("output", "fss_results.json")
-    if not os.path.isabs(output_path):
-        output_path = os.path.join(_PROJECT_DIR, output_path)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
-    print(f"\nResults saved to: {output_path}")
+    print(f"\nResults  : {output_path}")
+    print(f"Log      : {log_path}")
+    print(f"Visualize: python tools/visualize_fss.py --log {log_path}")
 
     return result
 
