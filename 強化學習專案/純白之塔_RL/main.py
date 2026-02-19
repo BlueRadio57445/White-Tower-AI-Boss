@@ -87,7 +87,7 @@ def main():
     config = TrainingConfig(
         epochs=args.epochs,
         steps_per_epoch=args.steps,
-        render_last_n=0 if args.no_render else 3,
+        render_last_n=0 if args.no_render else 10,
         export_weights=not args.no_export,
         export_path=args.export,
         use_pygame=not args.ascii
