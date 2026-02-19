@@ -101,11 +101,16 @@ def main():
     # Load level config if --level is specified
     level_config = None
     if args.level_path:
-        if not os.path.exists(args.level_path):
+        level_path = args.level_path
+        if not os.path.isabs(level_path) and not os.path.exists(level_path):
+            # Try resolving relative to main.py's directory
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            level_path = os.path.join(script_dir, level_path)
+        if not os.path.exists(level_path):
             print(f"Error: Level file not found: {args.level_path}")
             return
-        level_config = LevelLoader.from_json(args.level_path)
-        print(f"Loaded level: {level_config.name or level_config.id} ({args.level_path})")
+        level_config = LevelLoader.from_json(level_path)
+        print(f"Loaded level: {level_config.name or level_config.id} ({level_path})")
 
     # Create trainer
     trainer = Trainer(config, level_config=level_config)
