@@ -53,7 +53,7 @@ class Trainer:
     Manages the training loop for the RL agent.
     """
 
-    def __init__(self, config: Optional[TrainingConfig] = None, level_config=None):
+    def __init__(self, config: Optional[TrainingConfig] = None, level_config=None, curriculum=None):
         """
         Initialize the trainer.
 
@@ -61,9 +61,12 @@ class Trainer:
             config: Training configuration
             level_config: Optional LevelConfig to use for all episodes.
                           If None, GameWorld uses its hardcoded default level.
+            curriculum: Optional CurriculumManager. When set, overrides level_config
+                        and _curriculum_mask per-epoch based on curriculum stages.
         """
         self.config = config or TrainingConfig()
         self.level_config = level_config
+        self.curriculum = curriculum
         self.history: List[float] = []
         self.renderer = None
 
@@ -142,7 +145,21 @@ class Trainer:
             epoch_iterator = range(self.config.epochs)
             print(f"Training for {self.config.epochs} epochs...")
 
+        _last_stage_label: Optional[str] = None
+
         for epoch in epoch_iterator:
+            # Print curriculum stage transitions
+            if self.curriculum is not None and self.curriculum.covers_epoch(epoch):
+                current_stage = self.curriculum.get_stage(epoch)
+                if current_stage.label != _last_stage_label:
+                    print(
+                        f"\n[課程] 切換到階段: 「{current_stage.label}」"
+                        f"  (epoch {current_stage.epoch_start} - {current_stage.epoch_end})"
+                        f"  levels={current_stage.level_names}"
+                        f"  mask={current_stage.mask_name}"
+                    )
+                    _last_stage_label = current_stage.label
+
             total_reward = self._run_episode(
                 epoch,
                 render and epoch >= self.config.epochs - self.config.render_last_n,
@@ -172,7 +189,14 @@ class Trainer:
         action_names: List[str]
     ) -> float:
         """Run a single training episode."""
-        self.world.reset(self.level_config)
+        # Curriculum overrides level and mask when the epoch is covered
+        if self.curriculum is not None and self.curriculum.covers_epoch(epoch):
+            episode_level = self.curriculum.get_level_config(epoch)
+            self._curriculum_mask = self.curriculum.get_mask(epoch)
+        else:
+            episode_level = self.level_config
+
+        self.world.reset(episode_level)
         self.reward_calculator.reset()
         total_reward = 0.0
 

@@ -21,6 +21,7 @@ import numpy as np
 from training.trainer import Trainer, TrainingConfig
 from ai.export import WeightExporter
 from training.level_config import LevelLoader
+from training.curriculum import CurriculumManager
 
 
 def parse_args():
@@ -71,7 +72,11 @@ def parse_args():
     )
     parser.add_argument(
         '--level', type=str, default=None, dest='level_path',
-        help='Path to a level JSON file (e.g. levels/01_one_stationary.json)'
+        help='Path to a level JSON file (e.g. levels/01.json). Cannot be combined with --curriculum.'
+    )
+    parser.add_argument(
+        '--curriculum', type=str, default=None, dest='curriculum_path',
+        help='Path to a curriculum JSON file (e.g. curricula/missile_training.json). Cannot be combined with --level.'
     )
 
     return parser.parse_args()
@@ -92,18 +97,22 @@ def main():
     config = TrainingConfig(
         epochs=args.epochs,
         steps_per_epoch=args.steps,
-        render_last_n=0 if args.no_render else 1,
+        render_last_n=0 if args.no_render else 4,
         export_weights=not args.no_export,
         export_path=args.export,
         use_pygame=not args.ascii
     )
+
+    # --level and --curriculum are mutually exclusive
+    if args.level_path and args.curriculum_path:
+        print("Error: --level and --curriculum cannot be used together.")
+        return
 
     # Load level config if --level is specified
     level_config = None
     if args.level_path:
         level_path = args.level_path
         if not os.path.isabs(level_path) and not os.path.exists(level_path):
-            # Try resolving relative to main.py's directory
             script_dir = os.path.dirname(os.path.abspath(__file__))
             level_path = os.path.join(script_dir, level_path)
         if not os.path.exists(level_path):
@@ -112,8 +121,25 @@ def main():
         level_config = LevelLoader.from_json(level_path)
         print(f"Loaded level: {level_config.name or level_config.id} ({level_path})")
 
+    # Load curriculum if --curriculum is specified
+    curriculum = None
+    if args.curriculum_path:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        curriculum_path = args.curriculum_path
+        if not os.path.isabs(curriculum_path) and not os.path.exists(curriculum_path):
+            curriculum_path = os.path.join(script_dir, curriculum_path)
+        if not os.path.exists(curriculum_path):
+            print(f"Error: Curriculum file not found: {args.curriculum_path}")
+            return
+        curriculum = CurriculumManager(
+            curriculum_path,
+            levels_dir=os.path.join(script_dir, "levels"),
+            masks_dir=os.path.join(script_dir, "masks"),
+        )
+        print(curriculum.describe())
+
     # Create trainer
-    trainer = Trainer(config, level_config=level_config)
+    trainer = Trainer(config, level_config=level_config, curriculum=curriculum)
 
     # Load existing weights if --continue is specified
     if args.continue_training:

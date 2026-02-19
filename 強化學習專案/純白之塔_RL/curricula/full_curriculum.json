@@ -1,0 +1,41 @@
+{
+    "name": "full_curriculum",
+    "description": "完整課程：移動 → 外圈刮 → 飛彈 → 鐵錘 → 全技能。逐步解鎖，讓每個瞄準器都有充分練習機會。",
+    "stages": [
+        {
+            "label": "移動基礎",
+            "epoch_start": 0,
+            "epoch_end": 499,
+            "levels": ["01", "02", "03"],
+            "mask": "movement_only"
+        },
+        {
+            "label": "外圈刮",
+            "epoch_start": 500,
+            "epoch_end": 1499,
+            "levels": ["01", "02", "03"],
+            "mask": "outer_slash_only"
+        },
+        {
+            "label": "飛彈訓練",
+            "epoch_start": 1500,
+            "epoch_end": 3499,
+            "levels": ["04", "05", "06"],
+            "mask": "missile_only"
+        },
+        {
+            "label": "鐵錘訓練",
+            "epoch_start": 3500,
+            "epoch_end": 5499,
+            "levels": ["04", "05", "06"],
+            "mask": "hammer_only"
+        },
+        {
+            "label": "全技能整合",
+            "epoch_start": 5500,
+            "epoch_end": 11999,
+            "levels": ["01", "02", "03", "04", "05", "06", "07", "08"],
+            "mask": "all_skills"
+        }
+    ]
+}
