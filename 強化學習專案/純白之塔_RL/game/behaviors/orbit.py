@@ -149,7 +149,7 @@ class OrbitRangedBehavior(MonsterBehavior):
         # 遠程設定
         if weapon_type == self.WEAPON_BOW:
             kwargs.setdefault("attack_range", 8.0)
-            kwargs.setdefault("attack_damage", 15.0)
+            kwargs.setdefault("attack_damage", 10.0)
             kwargs.setdefault("attack_cooldown_ticks", 30)
         else:  # staff
             kwargs.setdefault("attack_range", 10.0)

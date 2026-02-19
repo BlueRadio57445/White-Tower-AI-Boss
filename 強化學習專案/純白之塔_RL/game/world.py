@@ -20,6 +20,11 @@ from game.behaviors import (
     HitAndRunBehavior,
     OrbitMeleeBehavior,
     OrbitRangedBehavior,
+    AdaptiveBehavior,
+    BackstabBehavior,
+    BloodPackDisruptorMeleeBehavior,
+    BloodPackDisruptorRangedBehavior,
+    OpportunistBehavior,
 )
 
 
