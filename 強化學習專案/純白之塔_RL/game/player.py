@@ -124,7 +124,7 @@ class PlayerConfig:
                     shape_type=SkillShapeType.RECTANGLE,
                     extra_params={
                         "length": 5.0,
-                        "width": 0.8,
+                        "width": 1.0,
                         "tip_range_start": 4.0,
                         "tip_damage": 50.0
                     }
@@ -151,7 +151,7 @@ class PlayerConfig:
                 "soul_claw": SkillConfig(
                     skill_id="soul_claw",
                     name="靈魂爪",
-                    cooldown_ticks=35,
+                    cooldown_ticks=25,
                     wind_up_ticks=8,
                     can_move_during_wind_up=False,
                     requires_aim=True,
@@ -170,7 +170,7 @@ class PlayerConfig:
                 "soul_palm": SkillConfig(
                     skill_id="soul_palm",
                     name="靈魂掌",
-                    cooldown_ticks=35,
+                    cooldown_ticks=25,
                     wind_up_ticks=8,
                     can_move_during_wind_up=False,
                     requires_aim=True,
@@ -194,13 +194,13 @@ class PlayerConfig:
                     can_move_during_wind_up=True,  # Can move in pool
                     requires_aim=False,
                     aim_actor_index=-1,
-                    damage=35.0,  # Emerge damage
+                    damage=15.0,  # Emerge damage
                     range=2.5,  # Emerge radius
                     angle_tolerance=0.0,  # Not used
                     shape_type=SkillShapeType.BLOOD_POOL,
                     extra_params={
-                        "pool_duration": 15,  # 15 ticks in pool (~3 seconds)
-                        "emerge_damage": 35.0,
+                        "pool_duration": 8,
+                        "emerge_damage": 15.0,
                         "emerge_radius": 2.5,
                     }
                 ),
