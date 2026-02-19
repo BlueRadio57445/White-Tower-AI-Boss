@@ -505,6 +505,24 @@ class GameWorld:
             return self.player.get_action_mask()
         return np.ones(7, dtype=np.float32)
 
+    def get_skill_cooldown_ratios(self) -> np.ndarray:
+        """
+        Get cooldown ratio for each skill in SKILL_ACTION_MAP order (actions 4-11).
+        Ratio = 1.0 - remaining_ticks / max_ticks (1.0 = ready, 0.0 = just used).
+        Returns 8 values, one per skill.
+        """
+        if not self.player or not self.player.has_skills():
+            return np.zeros(8, dtype=np.float32)
+        skills_comp = self.player.skills
+        ratios = []
+        for skill_id in self.player.SKILL_ACTION_MAP.values():
+            config = self.player.config.skills.get(skill_id)
+            max_ticks = config.cooldown_ticks if config else 0
+            remaining = skills_comp.skill_cooldowns.get(skill_id, 0)
+            ratio = 1.0 - (remaining / max_ticks) if max_ticks > 0 else 1.0
+            ratios.append(ratio)
+        return np.array(ratios, dtype=np.float32)
+
     def get_skill_cooldown_info(self) -> dict:
         """
         Get cooldown state for all player skills.

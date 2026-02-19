@@ -29,11 +29,11 @@ Current groups and dimensions:
     blood_pack_all           12D   all blood pack features grouped by type (dist ×3, dx_dy ×3, angle ×3)
     player_facing             2D   (cos, sin) of player facing angle
     wall_dist                 1D   distance to wall in facing direction
-    casting_info              2D   (casting_progress, ready_to_cast)
+    casting_info              9D   (casting_progress, cooldown_ratio ×8 skills)
     player_health             1D   player health ratio (0-1)
     bias                      1D   constant 1.0
     -------------------------------------------------------
-    ALL GROUPS               35D   (DEFAULT_GROUP_ORDER total)
+    ALL GROUPS               42D   (DEFAULT_GROUP_ORDER total)
 """
 
 from dataclasses import dataclass
@@ -267,12 +267,17 @@ def wall_dist(world: GameWorld, world_size: float) -> np.ndarray:
     return np.array([dist])
 
 
-@feature_group("casting_info", n_dims=2)
+@feature_group("casting_info", n_dims=9)
 def casting_info(world: GameWorld, world_size: float) -> np.ndarray:
-    """[casting_progress, ready_to_cast]. 2D."""
+    """
+    Casting state for the player. 9D.
+    [casting_progress, cd_outer_slash, cd_missile, cd_hammer, cd_dash,
+     cd_soul_claw, cd_soul_palm, cd_blood_pool, cd_summon_pack]
+    Cooldown ratio = 1 - remaining / max (1.0 = ready, 0.0 = just used).
+    """
     progress = world.get_casting_progress()
-    ready = 1.0 if world.is_player_ready_to_cast() else 0.0
-    return np.array([progress, ready])
+    cooldowns = world.get_skill_cooldown_ratios()  # 8D, SKILL_ACTION_MAP order
+    return np.concatenate([[progress], cooldowns])
 
 
 @feature_group("player_health", n_dims=1)
@@ -313,7 +318,7 @@ DEFAULT_GROUP_ORDER = [
     "blood_pack_all",       # 12D  [dist1,dx1,dy1,angle1, ...] interleaved
     "player_facing",        # 2D
     "wall_dist",            # 1D
-    "casting_info",         # 2D
+    "casting_info",         # 9D
     "player_health",        # 1D
     "bias",                 # 1D
 ]                           # total = 35D

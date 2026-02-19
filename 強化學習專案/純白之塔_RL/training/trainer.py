@@ -28,7 +28,7 @@ class TrainingConfig:
     use_pygame: bool = True  # Use Pygame renderer (False for ASCII)
 
     # Agent hyperparameters
-    n_features: int = 35
+    n_features: int = 42
     n_discrete_actions: int = 12  # 0-3: movement, 4-11: skills
     n_aim_actors: int = 6         # aim_missile, aim_hammer, aim_dash_direction, aim_dash_facing, aim_claw, aim_palm
     gamma: float = 0.99
