@@ -53,7 +53,8 @@ class Trainer:
     Manages the training loop for the RL agent.
     """
 
-    def __init__(self, config: Optional[TrainingConfig] = None, level_config=None, curriculum=None):
+    def __init__(self, config: Optional[TrainingConfig] = None, level_config=None,
+                 curriculum=None, feature_extractor=None):
         """
         Initialize the trainer.
 
@@ -63,6 +64,10 @@ class Trainer:
                           If None, GameWorld uses its hardcoded default level.
             curriculum: Optional CurriculumManager. When set, overrides level_config
                         and _curriculum_mask per-epoch based on curriculum stages.
+            feature_extractor: Optional custom feature extractor (e.g.
+                               SelectiveFeatureExtractor for FSS). When set,
+                               its n_features overrides config.n_features for
+                               the agent. Defaults to FeatureExtractor.
         """
         self.config = config or TrainingConfig()
         self.level_config = level_config
@@ -86,8 +91,16 @@ class Trainer:
 
         # Initialize components
         self.world = GameWorld(Room(size=self.config.world_size))
+
+        # Feature extractor: use injected one (e.g. SelectiveFeatureExtractor for FSS)
+        # or fall back to default FeatureExtractor.
+        if feature_extractor is not None:
+            self.feature_extractor = feature_extractor
+        else:
+            self.feature_extractor = FeatureExtractor(self.config.world_size)
+
         self.agent = HybridPPOAgent(
-            n_features=self.config.n_features,
+            n_features=self.feature_extractor.n_features,
             n_discrete_actions=self.config.n_discrete_actions,
             n_aim_actors=self.config.n_aim_actors,
             gamma=self.config.gamma,
@@ -97,7 +110,6 @@ class Trainer:
             sigma_min=self.config.sigma_min,
             sigma_decay=self.config.sigma_decay
         )
-        self.feature_extractor = FeatureExtractor(self.config.world_size)
         self.reward_calculator = RewardCalculator(self.world.event_bus)
 
     def set_curriculum_mask(self, mask: Optional[np.ndarray]) -> None:
