@@ -23,6 +23,10 @@ Current groups and dimensions:
     blood_dist             1D   distance to nearest blood pack
     blood_dx_dy            2D   (dx, dy) to nearest blood pack
     blood_relative_angle   1D   relative angle to nearest blood pack
+    blood_pack_dist        3D   distance to each blood pack (nearest first)
+    blood_pack_dx_dy       6D   (dx, dy) to each blood pack (nearest first)
+    blood_pack_relative_angle 3D  relative angle to each blood pack (nearest first)
+    blood_pack_all         12D  all blood pack features interleaved (dx,dy,dist,angle ×3)
     player_facing          2D   (cos, sin) of player facing angle
     wall_dist              1D   distance to wall in facing direction
     casting_info           2D   (casting_progress, ready_to_cast)
@@ -81,6 +85,7 @@ def get_group(name: str) -> FeatureGroup:
 # ---------------------------------------------------------------------------
 
 MAX_MONSTERS = 4
+MAX_BLOOD_PACKS = 3
 
 
 def _get_sorted_monster_data(world: GameWorld, world_size: float):
@@ -113,6 +118,38 @@ def _get_sorted_monster_data(world: GameWorld, world_size: float):
         data.append((0.0, 0.0, 0.0, 0.0))
 
     return data[:MAX_MONSTERS]
+
+
+def _get_sorted_blood_pack_data(world: GameWorld, world_size: float):
+    """
+    Compute and sort blood pack data by distance (nearest first).
+
+    Returns list of (dist, dx, dy, rel_angle) tuples,
+    zero-padded to MAX_BLOOD_PACKS entries.
+    """
+    player_pos = world.get_player_position()
+    player_angle = world.get_player_angle()
+    blood_positions = world.get_alive_blood_pack_positions()
+
+    data = []
+    for pos in blood_positions:
+        dx = (pos[0] - player_pos[0]) / world_size
+        dy = (pos[1] - player_pos[1]) / world_size
+        dist = np.linalg.norm(pos - player_pos) / world_size
+        angle_to = np.arctan2(pos[1] - player_pos[1], pos[0] - player_pos[0])
+        rel_angle = np.arctan2(
+            np.sin(angle_to - player_angle),
+            np.cos(angle_to - player_angle)
+        )
+        data.append((dist, dx, dy, rel_angle))
+
+    data.sort(key=lambda x: x[0])
+
+    # Zero-pad
+    while len(data) < MAX_BLOOD_PACKS:
+        data.append((0.0, 0.0, 0.0, 0.0))
+
+    return data[:MAX_BLOOD_PACKS]
 
 
 def _raycast_to_wall(pos: np.ndarray, cos_a: float, sin_a: float, world_size: float) -> float:
@@ -185,6 +222,37 @@ def blood_relative_angle(world: GameWorld, world_size: float) -> np.ndarray:
         np.cos(angle_to - player_angle)
     )
     return np.array([rel_angle])
+
+
+@feature_group("blood_pack_dist", n_dims=3)
+def blood_pack_dist(world: GameWorld, world_size: float) -> np.ndarray:
+    """Distance to each blood pack (nearest first). 3D."""
+    data = _get_sorted_blood_pack_data(world, world_size)
+    return np.array([d[0] for d in data])
+
+
+@feature_group("blood_pack_dx_dy", n_dims=6)
+def blood_pack_dx_dy(world: GameWorld, world_size: float) -> np.ndarray:
+    """Relative (dx, dy) to each blood pack (nearest first). 6D."""
+    data = _get_sorted_blood_pack_data(world, world_size)
+    return np.array([v for d in data for v in (d[1], d[2])])
+
+
+@feature_group("blood_pack_relative_angle", n_dims=3)
+def blood_pack_relative_angle(world: GameWorld, world_size: float) -> np.ndarray:
+    """Relative angle to each blood pack (nearest first). 3D."""
+    data = _get_sorted_blood_pack_data(world, world_size)
+    return np.array([d[3] for d in data])
+
+
+@feature_group("blood_pack_all", n_dims=12)
+def blood_pack_all(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    All blood pack features in interleaved format. 12D.
+    Output: [dx1,dy1,dist1,angle1, dx2,dy2,dist2,angle2, dx3,dy3,dist3,angle3] (nearest first)
+    """
+    data = _get_sorted_blood_pack_data(world, world_size)
+    return np.array([v for d in data for v in (d[1], d[2], d[0], d[3])])
 
 
 @feature_group("player_facing", n_dims=2)

@@ -454,6 +454,14 @@ class GameWorld:
                 positions.append(monster.position.as_array())
         return positions
 
+    def get_alive_blood_pack_positions(self) -> List[np.ndarray]:
+        """Get positions of all alive blood packs."""
+        positions = []
+        for item in self.items:
+            if item.is_alive and item.has_tag("blood_pack") and item.has_position():
+                positions.append(item.position.as_array())
+        return positions
+
     def get_blood_pack_position(self) -> np.ndarray:
         """Get first blood pack position as numpy array."""
         alive_items = [i for i in self.items if i.is_alive]
