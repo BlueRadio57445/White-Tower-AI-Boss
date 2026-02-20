@@ -79,7 +79,7 @@ class PlayerConfig:
         """Add default skills if none provided."""
         if not self.skills:
             self.skills = {
-                # Action 4: 外圈刮 (Outer Slash) - 環形 AOE，不需要瞄準
+                # Action 5: 外圈刮 (Outer Slash) - 環形 AOE，不需要瞄準
                 "outer_slash": SkillConfig(
                     skill_id="outer_slash",
                     name="外圈刮",
@@ -94,7 +94,7 @@ class PlayerConfig:
                     shape_type=SkillShapeType.RING,
                     extra_params={"inner_radius": 3.0, "outer_radius": 4.5}
                 ),
-                # Action 5: 飛彈 (Missile) - 投射物，使用 aim_actor 0
+                # Action 6: 飛彈 (Missile) - 投射物，使用 aim_actor 0
                 "missile": SkillConfig(
                     skill_id="missile",
                     name="飛彈",
@@ -109,7 +109,7 @@ class PlayerConfig:
                     shape_type=SkillShapeType.PROJECTILE,
                     extra_params={"speed": 1.5, "radius": 0.5, "max_range": 15.0}
                 ),
-                # Action 6: 鐵錘 (Hammer) - 長方形範圍，使用 aim_actor 1
+                # Action 7: 鐵錘 (Hammer) - 長方形範圍，使用 aim_actor 1
                 "hammer": SkillConfig(
                     skill_id="hammer",
                     name="鐵錘",
@@ -129,7 +129,7 @@ class PlayerConfig:
                         "tip_damage": 50.0
                     }
                 ),
-                # Action 7: 閃現 (Dash) - 固定距離位移，使用 aim_actor 2, 3
+                # Action 8: 閃現 (Dash) - 固定距離位移，使用 aim_actor 2, 3
                 "dash": SkillConfig(
                     skill_id="dash",
                     name="閃現",
@@ -147,7 +147,7 @@ class PlayerConfig:
                         "dash_distance": 3.0,
                     }
                 ),
-                # Action 8: 靈魂爪 (Soul Claw) - 長方形範圍拉人，使用 aim_actor 4
+                # Action 9: 靈魂爪 (Soul Claw) - 長方形範圍拉人，使用 aim_actor 4
                 "soul_claw": SkillConfig(
                     skill_id="soul_claw",
                     name="靈魂爪",
@@ -166,7 +166,7 @@ class PlayerConfig:
                         "pull_distance": 3.0,
                     }
                 ),
-                # Action 9: 靈魂掌 (Soul Palm) - 長方形範圍推人，使用 aim_actor 5
+                # Action 10: 靈魂掌 (Soul Palm) - 長方形範圍推人，使用 aim_actor 5
                 "soul_palm": SkillConfig(
                     skill_id="soul_palm",
                     name="靈魂掌",
@@ -185,7 +185,7 @@ class PlayerConfig:
                         "push_distance": 3.0,
                     }
                 ),
-                # Action 10: 血池 (Blood Pool) - 沉入血池無敵，蹦出時 AOE 傷害
+                # Action 11: 血池 (Blood Pool) - 沉入血池無敵，蹦出時 AOE 傷害
                 "blood_pool": SkillConfig(
                     skill_id="blood_pool",
                     name="血池",
@@ -204,7 +204,7 @@ class PlayerConfig:
                         "emerge_radius": 2.5,
                     }
                 ),
-                # Action 11: 召喚血包 (Summon Blood Pack) - 在場地生成血包
+                # Action 12: 召喚血包 (Summon Blood Pack) - 在場地生成血包
                 "summon_pack": SkillConfig(
                     skill_id="summon_pack",
                     name="召喚血包",
@@ -351,14 +351,14 @@ class Player:
 
     # Mapping from discrete action to skill ID
     SKILL_ACTION_MAP = {
-        4: "outer_slash",  # 外圈刮
-        5: "missile",      # 飛彈
-        6: "hammer",       # 鐵錘
-        7: "dash",         # 閃現
-        8: "soul_claw",    # 靈魂爪
-        9: "soul_palm",    # 靈魂掌
-        10: "blood_pool",  # 血池
-        11: "summon_pack", # 召喚血包
+        5: "outer_slash",  # 外圈刮
+        6: "missile",      # 飛彈
+        7: "hammer",       # 鐵錘
+        8: "dash",         # 閃現
+        9: "soul_claw",    # 靈魂爪
+        10: "soul_palm",   # 靈魂掌
+        11: "blood_pool",  # 血池
+        12: "summon_pack", # 召喚血包
     }
 
     def execute_action(
@@ -373,7 +373,7 @@ class Player:
         Execute a player action.
 
         Args:
-            action_discrete: 0=forward, 1=backward, 2=left, 3=right, 4-11=skills
+            action_discrete: 0=idle, 1=forward, 2=backward, 3=left, 4=right, 5-12=skills
             aim_values: List of aim values for each aim actor
             physics: Physics system for movement
             skill_executor: Skill executor for casting
@@ -387,28 +387,32 @@ class Player:
 
         event = ""
 
+        # Action 0: Idle (do nothing)
+        if action_discrete == 0:
+            return ""
+
         # Check if movement is blocked during wind-up
-        is_movement_action = action_discrete in (0, 1, 2, 3)
+        is_movement_action = action_discrete in (1, 2, 3, 4)
         if is_movement_action and self._is_movement_blocked():
             return "WIND-UP..."  # Can't move during wind-up
 
-        if action_discrete == 0:  # Move forward
+        if action_discrete == 1:  # Move forward
             success = physics.move_forward(self.entity, speed=self.config.move_speed)
             if not success:
                 event = "HIT WALL!"
 
-        elif action_discrete == 1:  # Move backward
+        elif action_discrete == 2:  # Move backward
             success = physics.move_backward(self.entity, speed=self.config.move_speed)
             if not success:
                 event = "HIT WALL!"
 
-        elif action_discrete == 2:  # Rotate left
+        elif action_discrete == 3:  # Rotate left
             physics.rotate_entity(self.entity, self.config.turn_speed)
 
-        elif action_discrete == 3:  # Rotate right
+        elif action_discrete == 4:  # Rotate right
             physics.rotate_entity(self.entity, -self.config.turn_speed)
 
-        elif action_discrete in self.SKILL_ACTION_MAP:  # Cast skill (4-9)
+        elif action_discrete in self.SKILL_ACTION_MAP:  # Cast skill (5-12)
             if self.entity.skills.is_ready and not self.entity.skills.in_blood_pool:
                 skill_id = self.SKILL_ACTION_MAP[action_discrete]
                 skill_config = self.get_skill_config(skill_id)
@@ -482,11 +486,12 @@ class Player:
 
         Returns a float array of shape (n_actions,) where 0.0 means the
         action is illegal (will be zeroed out in the agent's logits).
+        Idle (index 0) is always allowed.
         Skill actions are masked when the player is casting or the skill
-        is on cooldown. Movement actions are never masked.
-        Blood pool prevents all actions except movement while in pool.
+        is on cooldown. Movement is masked during non-movable wind-up.
+        Blood pool prevents all actions except idle and movement while in pool.
         """
-        mask = np.ones(12, dtype=np.float32)  # Updated to 12 actions (0-11)
+        mask = np.ones(13, dtype=np.float32)  # 13 actions (0=idle, 1-4=move, 5-12=skills)
         if self.entity is None or not self.entity.has_skills():
             return mask
 
@@ -502,6 +507,11 @@ class Player:
         for action, skill_id in self.SKILL_ACTION_MAP.items():
             if not skills.is_ready or not skills.is_skill_available(skill_id):
                 mask[action] = 0.0
+
+        # Mask movement if blocked during wind-up
+        if self._is_movement_blocked():
+            for i in range(1, 5):  # actions 1-4 = movement
+                mask[i] = 0.0
 
         return mask
 

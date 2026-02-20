@@ -415,7 +415,7 @@ class GameWorld:
         Execute a player action.
 
         Args:
-            action_discrete: 0=forward, 1=backward, 2=left, 3=right, 4=outer_slash, 5=missile, 6=hammer
+            action_discrete: 0=idle, 1=forward, 2=backward, 3=left, 4=right, 5-12=skills
             aim_values: List of aim values or single float (for backward compatibility)
 
         Returns:
@@ -519,7 +519,7 @@ class GameWorld:
         """Get binary action mask for current state."""
         if self.player:
             return self.player.get_action_mask()
-        return np.ones(7, dtype=np.float32)
+        return np.ones(13, dtype=np.float32)
 
     def get_skill_cooldown_ratios(self) -> np.ndarray:
         """

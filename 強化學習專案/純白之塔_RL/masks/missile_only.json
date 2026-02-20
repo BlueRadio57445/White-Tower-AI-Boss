@@ -1,5 +1,5 @@
 {
     "name": "missile_only",
     "description": "允許移動 + 飛彈 (PROJECTILE)。專門訓練 aim_actor[0] 的瞄準能力。",
-    "allowed_actions": [0, 1, 2, 3, 5]
+    "allowed_actions": [0, 1, 2, 3, 4, 6]
 }

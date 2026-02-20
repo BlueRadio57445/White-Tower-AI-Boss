@@ -20,42 +20,42 @@ class HybridPPOAgent:
     dead neuron problems. Supports both discrete and continuous actions.
 
     Action Space:
-        Discrete (12 actions): 0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT,
-                               4=OUTER_SLASH, 5=MISSILE, 6=HAMMER,
-                               7=DASH, 8=SOUL_CLAW, 9=SOUL_PALM,
-                               10=BLOOD_POOL, 11=SUMMON_PACK
+        Discrete (13 actions): 0=IDLE, 1=FORWARD, 2=BACKWARD, 3=LEFT, 4=RIGHT,
+                               5=OUTER_SLASH, 6=MISSILE, 7=HAMMER,
+                               8=DASH, 9=SOUL_CLAW, 10=SOUL_PALM,
+                               11=BLOOD_POOL, 12=SUMMON_PACK
         Continuous (6 actors): aim_missile (0), aim_hammer (1),
                                aim_dash_direction (2), aim_dash_facing (3),
                                aim_claw (4), aim_palm (5)
 
     Skill to Actor Mapping:
-        4 (outer_slash): No aim required
-        5 (missile): Uses aim_missile (actor 0)
-        6 (hammer): Uses aim_hammer (actor 1)
-        7 (dash): Uses aim_dash_direction (actor 2), aim_dash_facing (actor 3)
-        8 (soul_claw): Uses aim_claw (actor 4)
-        9 (soul_palm): Uses aim_palm (actor 5)
-        10 (blood_pool): No aim required
-        11 (summon_pack): No aim required
+        5 (outer_slash): No aim required
+        6 (missile): Uses aim_missile (actor 0)
+        7 (hammer): Uses aim_hammer (actor 1)
+        8 (dash): Uses aim_dash_direction (actor 2), aim_dash_facing (actor 3)
+        9 (soul_claw): Uses aim_claw (actor 4)
+        10 (soul_palm): Uses aim_palm (actor 5)
+        11 (blood_pool): No aim required
+        12 (summon_pack): No aim required
     """
 
     # Skill action to aim actor mapping
     # -1 means no aim required, others are actor indices
     SKILL_TO_AIM_ACTOR = {
-        4: -1,  # outer_slash - no aim
-        5: 0,   # missile - aim_missile
-        6: 1,   # hammer - aim_hammer
-        7: [2, 3],  # dash - aim_dash_direction, aim_dash_facing
-        8: 4,   # soul_claw - aim_claw
-        9: 5,   # soul_palm - aim_palm
-        10: -1, # blood_pool - no aim
-        11: -1, # summon_pack - no aim
+        5: -1,  # outer_slash - no aim
+        6: 0,   # missile - aim_missile
+        7: 1,   # hammer - aim_hammer
+        8: [2, 3],  # dash - aim_dash_direction, aim_dash_facing
+        9: 4,   # soul_claw - aim_claw
+        10: 5,  # soul_palm - aim_palm
+        11: -1, # blood_pool - no aim
+        12: -1, # summon_pack - no aim
     }
 
     def __init__(
         self,
         n_features: int,
-        n_discrete_actions: int = 12,
+        n_discrete_actions: int = 13,
         n_aim_actors: int = 6,
         gamma: float = 0.99,
         lmbda: float = 0.95,

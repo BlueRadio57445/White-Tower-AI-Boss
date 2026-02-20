@@ -1,5 +1,5 @@
 {
     "name": "soul_claw_only",
     "description": "允許移動 + 靈魂爪",
-    "allowed_actions": [0, 1, 2, 3, 8]
+    "allowed_actions": [0, 1, 2, 3, 4, 9]
 }

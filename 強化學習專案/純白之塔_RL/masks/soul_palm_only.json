@@ -1,5 +1,5 @@
 {
     "name": "soul_palm_only",
     "description": "允許移動 + 靈魂掌",
-    "allowed_actions": [0, 1, 2, 3, 9]
+    "allowed_actions": [0, 1, 2, 3, 4, 10]
 }

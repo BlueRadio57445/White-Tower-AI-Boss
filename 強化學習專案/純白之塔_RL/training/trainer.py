@@ -29,7 +29,7 @@ class TrainingConfig:
 
     # Agent hyperparameters
     n_features: int = 42
-    n_discrete_actions: int = 12  # 0-3: movement, 4-11: skills
+    n_discrete_actions: int = 13  # 0: idle, 1-4: movement, 5-12: skills
     n_aim_actors: int = 6         # aim_missile, aim_hammer, aim_dash_direction, aim_dash_facing, aim_claw, aim_palm
     gamma: float = 0.99
     lmbda: float = 0.95
@@ -141,7 +141,7 @@ class Trainer:
         Returns:
             List of episode rewards
         """
-        action_names = ["前進", "後退", "左轉", "右轉", "外圈刮", "飛彈", "鐵錘", "閃現", "靈魂爪", "靈魂掌", "血池", "召喚血包"]
+        action_names = ["等待", "前進", "後退", "左轉", "右轉", "外圈刮", "飛彈", "鐵錘", "閃現", "靈魂爪", "靈魂掌", "血池", "召喚血包"]
 
         print("Starting 2D Training... Squared Probability PPO Ready.")
         print(f"Discrete actions: {', '.join(action_names)}")

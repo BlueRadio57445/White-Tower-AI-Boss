@@ -1,5 +1,5 @@
 {
     "name": "outer_slash_only",
     "description": "允許移動 + 外圈刮 (RING AOE)。外圈刮不需要瞄準，適合純移動位置訓練。",
-    "allowed_actions": [0, 1, 2, 3, 4]
+    "allowed_actions": [0, 1, 2, 3, 4, 5]
 }

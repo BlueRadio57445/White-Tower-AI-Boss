@@ -12,9 +12,9 @@ Mask JSON format:
     }
 
 Action indices:
-    0=FORWARD, 1=BACKWARD, 2=LEFT, 3=RIGHT,
-    4=OUTER_SLASH, 5=MISSILE, 6=HAMMER, 7=DASH,
-    8=SOUL_CLAW, 9=SOUL_PALM, 10=BLOOD_POOL, 11=SUMMON_PACK
+    0=IDLE, 1=FORWARD, 2=BACKWARD, 3=LEFT, 4=RIGHT,
+    5=OUTER_SLASH, 6=MISSILE, 7=HAMMER, 8=DASH,
+    9=SOUL_CLAW, 10=SOUL_PALM, 11=BLOOD_POOL, 12=SUMMON_PACK
 """
 
 import json
@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Union
 
 
-N_ACTIONS = 12
+N_ACTIONS = 13
 
 
 class ActionMaskLoader:
