@@ -258,13 +258,16 @@ class HybridPPOAgent:
             # Update discrete actor (with mask for correct ratio computation)
             self._update_actor_discrete(state, a_d, old_prob_d, adv, lr_actor_discrete, mask)
 
-            # Update all aim actors
-            for actor_idx in range(self.n_aim_actors):
-                if actor_idx < len(aim_values) and actor_idx < len(old_mus):
-                    self._update_aim_actor(
-                        state, aim_values[actor_idx], old_mus[actor_idx],
-                        adv, lr_actor_continuous, actor_idx
-                    )
+            # Update only the aim actor(s) relevant to the action taken.
+            actor_spec = self.SKILL_TO_AIM_ACTOR.get(a_d)
+            if actor_spec is not None and actor_spec != -1:
+                actor_indices = actor_spec if isinstance(actor_spec, list) else [actor_spec]
+                for actor_idx in actor_indices:
+                    if actor_idx < len(aim_values) and actor_idx < len(old_mus):
+                        self._update_aim_actor(
+                            state, aim_values[actor_idx], old_mus[actor_idx],
+                            adv, lr_actor_continuous, actor_idx
+                        )
 
         # Decay exploration
         self.sigma = max(self.sigma * self.sigma_decay, self.sigma_min)
