@@ -21,6 +21,7 @@ Current groups and dimensions:
     monster_dx_dy             8D   (dx, dy) to each monster (nearest first)
     monster_relative_angle    4D   relative angle to each monster (nearest first)
     monster_health            4D   health ratio of each monster (nearest first)
+    monster_damage_taken      4D   damage taken ratio (1 - health) of each monster (nearest first)
     monster_angle_sincos      8D   (sin, cos) of relative angle to each monster (nearest first)
     monster_all              16D   all monster features grouped by type (dist ×4, dx_dy ×4, angle ×4)
     blood_pack_dist           3D   distance to each blood pack (nearest first)
@@ -32,6 +33,7 @@ Current groups and dimensions:
     wall_dist                 1D   distance to wall in facing direction
     casting_info              9D   (casting_progress, cooldown_ratio ×8 skills)
     player_health             1D   player health ratio (0-1)
+    player_damage_taken       1D   player damage taken ratio (1 - health)
     bias                      1D   constant 1.0
     -------------------------------------------------------
     ALL GROUPS               42D   (DEFAULT_GROUP_ORDER total)
@@ -199,6 +201,27 @@ def monster_health(world: GameWorld, world_size: float) -> np.ndarray:
     return np.array([d[4] for d in data])
 
 
+@feature_group("monster_damage_taken", n_dims=4)
+def monster_damage_taken(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Damage taken ratio (1 - health_ratio) for each monster (nearest first). 4D.
+    - 0.0 = full hp or monster doesn't exist
+    - 0.5 = monster at 50% hp (took 50% damage)
+    - 1.0 = monster dead
+    """
+    data = _get_sorted_monster_data(world, world_size)
+    result = []
+    for d in data:
+        health_ratio = d[4]
+        # If monster exists (health_ratio > 0 or distance > 0), compute damage taken
+        # Otherwise (zero-padded entry), set to 0
+        if d[0] > 0 or health_ratio > 0:  # d[0] is distance
+            result.append(1.0 - health_ratio)
+        else:
+            result.append(0.0)
+    return np.array(result)
+
+
 @feature_group("monster_angle_sincos", n_dims=8)
 def monster_angle_sincos(world: GameWorld, world_size: float) -> np.ndarray:
     """
@@ -291,6 +314,18 @@ def casting_info(world: GameWorld, world_size: float) -> np.ndarray:
 def player_health(world: GameWorld, world_size: float) -> np.ndarray:
     """Player health ratio (0-1). 1D."""
     return np.array([world.get_player_health_percentage()])
+
+
+@feature_group("player_damage_taken", n_dims=1)
+def player_damage_taken(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Player damage taken ratio (1 - health_ratio). 1D.
+    - 0.0 = full hp
+    - 0.5 = player at 50% hp (took 50% damage)
+    - 1.0 = player dead
+    """
+    health_ratio = world.get_player_health_percentage()
+    return np.array([1.0 - health_ratio])
 
 
 @feature_group("bias", n_dims=1)
