@@ -5,13 +5,13 @@
         {
             "label": "定點怪物",
             "epoch_start": 0,
-            "epoch_end": 1499,
+            "epoch_end": 399,
             "levels": ["01", "01-01"],
             "mask": "outer_slash_only"
         },
         {
             "label": "移動怪物",
-            "epoch_start": 1500,
+            "epoch_start": 400,
             "epoch_end": 2999,
             "levels": ["11", "12"],
             "mask": "outer_slash_only"
