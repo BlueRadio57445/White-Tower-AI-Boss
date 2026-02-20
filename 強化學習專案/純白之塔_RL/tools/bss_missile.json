@@ -1,0 +1,34 @@
+{
+    "fixed_groups": ["bias"],
+    "candidate_groups": [
+        "monster_dist",
+        "monster_dx_dy",
+        "monster_relative_angle",
+        "monster_health",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_dx_dy",
+        "blood_pack_relative_angle",
+        "blood_pack_angle_sincos",
+        "player_facing",
+        "wall_dist",
+        "casting_info",
+        "player_health"
+    ],
+    "curriculum": "curricula/missile_training.json",
+    "eval_epochs": 900,
+    "steps_per_epoch": 150,
+    "eval_window": 50,
+    "output": "bss_results_missile.json",
+
+    "注意": "以下是 PPO 超參數，可選填，不填則使用訓練預設值",
+    "gamma": 0.99,
+    "lmbda": 0.95,
+    "epsilon": 0.2,
+    "sigma_init": 0.6,
+    "sigma_min": 0.15,
+    "sigma_decay": 0.9998,
+    "lr_actor_discrete": 0.003,
+    "lr_actor_continuous": 0.002,
+    "lr_critic": 0.007
+}
