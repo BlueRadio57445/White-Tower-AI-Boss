@@ -210,7 +210,9 @@ class HybridPPOAgent:
         Store a transition in the experience buffer.
 
         Args:
-            transition: Tuple of (obs, a_d, aim_values, prob_d, mus, value, logits, reward)
+            transition: Tuple of (obs, a_d, aim_values, prob_d, mus, value, logits, reward, action_mask)
+                action_mask: combined mask (world AND curriculum) active at collection time.
+                    May be None if no mask was used.
         """
         self.buffer.append(transition)
 
@@ -233,7 +235,7 @@ class HybridPPOAgent:
 
         # Unpack buffer
         (states, a_discretes, aim_values_list, old_probs_discrete,
-         old_mus_list, values, old_logits_list, rewards) = zip(*self.buffer)
+         old_mus_list, values, old_logits_list, rewards, action_masks) = zip(*self.buffer)
 
         # Compute GAE advantages
         advantages = self._compute_gae(rewards, values)
@@ -248,12 +250,13 @@ class HybridPPOAgent:
             old_prob_d = old_probs_discrete[i]
             old_mus = old_mus_list[i]
             adv = advantages[i]
+            mask = action_masks[i]
 
             # Update critic
             self._update_critic(state, target_v, lr_critic)
 
-            # Update discrete actor
-            self._update_actor_discrete(state, a_d, old_prob_d, adv, lr_actor_discrete)
+            # Update discrete actor (with mask for correct ratio computation)
+            self._update_actor_discrete(state, a_d, old_prob_d, adv, lr_actor_discrete, mask)
 
             # Update all aim actors
             for actor_idx in range(self.n_aim_actors):
@@ -292,10 +295,13 @@ class HybridPPOAgent:
 
     def _update_actor_discrete(
         self, state: np.ndarray, action: int,
-        old_prob: float, advantage: float, lr: float
+        old_prob: float, advantage: float, lr: float,
+        action_mask: Optional[np.ndarray] = None
     ) -> None:
         """Update discrete actor weights using squared probability gradient."""
         logits_new = np.dot(self.w_actor_discrete, state)
+        if action_mask is not None:
+            logits_new = logits_new * action_mask
         probs_new, scores_new, sum_new, _ = squared_prob(logits_new)
 
         ratio = probs_new[action] / (old_prob + 1e-8)

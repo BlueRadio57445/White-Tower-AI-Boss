@@ -247,8 +247,8 @@ class Trainer:
             reward = self.reward_calculator.get_reward()
             event = self.reward_calculator.get_last_event() or action_event
 
-            # Store transition
-            self.agent.store_transition((obs, a_d, aim_values, prob_d, mus, v, logits, reward))
+            # Store transition (include action_mask for correct ratio computation)
+            self.agent.store_transition((obs, a_d, aim_values, prob_d, mus, v, logits, reward, action_mask))
             total_reward += reward
 
             # Render if requested
