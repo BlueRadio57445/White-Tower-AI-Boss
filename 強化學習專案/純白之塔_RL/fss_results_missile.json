@@ -1,0 +1,32 @@
+{
+  "selected_groups": [
+    "bias",
+    "blood_pack_relative_angle",
+    "monster_health"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "blood_pack_relative_angle",
+      "score": 61.172,
+      "n_features": 4,
+      "selected_so_far": [
+        "bias",
+        "blood_pack_relative_angle"
+      ]
+    },
+    {
+      "step": 2,
+      "added": "monster_health",
+      "score": 91.76,
+      "n_features": 8,
+      "selected_so_far": [
+        "bias",
+        "blood_pack_relative_angle",
+        "monster_health"
+      ]
+    }
+  ],
+  "final_score": 91.76,
+  "total_dims": 8
+}

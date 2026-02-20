@@ -16,8 +16,8 @@
         "player_health"
     ],
     "curriculum": "curricula/missile_training.json",
-    "eval_epochs": 1500,
-    "steps_per_epoch": 400,
+    "eval_epochs": 3000,
+    "steps_per_epoch": 200,
     "eval_window": 50,
     "output": "fss_results_missile.json",
 
