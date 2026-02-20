@@ -1,0 +1,34 @@
+{
+    "name": "basic",
+    "description": "基礎課程",
+    "stages": [
+        {
+            "label": "一隻怪",
+            "epoch_start": 0,
+            "epoch_end": 99,
+            "levels": ["00", "00-01-01", "00-01-02"],
+            "mask": "all_skills"
+        },
+        {
+            "label": "兩隻怪",
+            "epoch_start": 100,
+            "epoch_end": 199,
+            "levels": ["00-02-01", "00-02-02", "00-02-03"],
+            "mask": "all_skills"
+        },
+        {
+            "label": "三隻怪",
+            "epoch_start": 200,
+            "epoch_end": 299,
+            "levels": ["00-03-01", "00-03-02", "00-03-03"],
+            "mask": "all_skills"
+        },
+        {
+            "label": "四隻怪",
+            "epoch_start": 300,
+            "epoch_end": 399,
+            "levels": ["01", "01-01"],
+            "mask": "all_skills"
+        }
+    ]
+}

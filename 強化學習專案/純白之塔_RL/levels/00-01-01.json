@@ -1,0 +1,21 @@
+{
+  "id": "00_one",
+  "name": "第零關：一隻靜止怪物",
+  "room": { "size": 10.0 },
+  "player": { "x": 9.0, "y": 8.0, "angle": 3.14159 },
+  "monsters": [
+    {
+      "x": 3.0, "y": 2.0, "health": 100.0,
+      "behavior": {
+        "type": "stationary",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20
+      }
+    }
+  ],
+  "blood_packs": [
+    { "x": 2.0, "y": 1.0, "heal_amount": 30.0 },
+    { "x": 8.0, "y": 5.0, "heal_amount": 30.0 }
+  ]
+}
