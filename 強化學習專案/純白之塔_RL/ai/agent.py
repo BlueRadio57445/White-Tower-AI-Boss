@@ -301,21 +301,20 @@ class HybridPPOAgent:
         ratio = probs_new[action] / (old_prob + 1e-8)
         clipped_ratio = np.clip(ratio, 1 - self.epsilon, 1 + self.epsilon)
 
-        # Only update if not clipped or within bounds
-        if (ratio * advantage <= clipped_ratio * advantage) or \
-           (1 - self.epsilon < ratio < 1 + self.epsilon):
+        # Only update if unclipped surrogate is the min (standard PPO)
+        if ratio * advantage <= clipped_ratio * advantage:
 
             inv_sum = 1.0 / (sum_new + 1e-8)
             inv_prob = np.clip(1.0 / (probs_new[action] + 1e-8), 0, 50)
 
-            # Gradient for selected action
-            grad_selected = advantage * (2 * logits_new[action] * inv_sum) * (inv_prob - 1) * state
+            # Gradient for selected action (with ratio for importance sampling)
+            grad_selected = advantage * ratio * (2 * logits_new[action] * inv_sum) * (inv_prob - 1) * state
             self.w_actor_discrete[action] += lr * grad_selected
 
             # Gradient for other actions
             for j in range(self.n_discrete_actions):
                 if j != action:
-                    grad_other = -advantage * (2 * logits_new[j] * inv_sum) * state
+                    grad_other = -advantage * ratio * (2 * logits_new[j] * inv_sum) * state
                     self.w_actor_discrete[j] += lr * grad_other
 
     def _update_aim_actor(
@@ -334,10 +333,9 @@ class HybridPPOAgent:
 
         clipped_ratio = np.clip(ratio, 1 - self.epsilon, 1 + self.epsilon)
 
-        if (ratio * advantage <= clipped_ratio * advantage) or \
-           (1 - self.epsilon < ratio < 1 + self.epsilon):
+        if ratio * advantage <= clipped_ratio * advantage:
             grad = (action - new_mu) / (self.sigma ** 2) * state
-            self.w_aim_actors[actor_idx] += lr * advantage * grad
+            self.w_aim_actors[actor_idx] += lr * advantage * ratio * grad
 
     def _update_actor_continuous(
         self, state: np.ndarray, action: float,
