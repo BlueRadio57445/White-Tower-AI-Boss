@@ -1,0 +1,24 @@
+{
+  "id": "one_04",
+  "name": "一隻繞行",
+  "room": { "size": 10.0 },
+  "player": { "x": 5.0, "y": 5.0, "angle": 3.14159 },
+  "monsters": [
+    {
+      "x": 9.0, "y": 9.0, "health": 100.0,
+      "behavior": {
+        "type": "orbit_melee",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "target_radius": 2.5, 
+        "radius_tolerance": 1.0,
+        "clockwise": true,
+        "strafe_while_approaching": true
+      }
+    }
+  ],
+  "blood_packs": [
+    { "x": 6.0, "y": 1.0, "heal_amount": 30.0 }
+  ]
+}

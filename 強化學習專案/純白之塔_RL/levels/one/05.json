@@ -1,0 +1,30 @@
+{
+  "id": "one_05",
+  "name": "一隻適應",
+  "room": { "size": 10.0 },
+  "player": { "x": 7.0, "y": 1.0, "angle": 3.14159 },
+  "monsters": [
+    {
+      "x": 6.0, "y": 3.0, "health": 100.0,
+      "behavior": {
+        "type": "adaptive",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "aggressive_threshold": 0.7,
+        "cautious_threshold": 0.4,
+        "sprint_threshold": 5.0,
+        "target_radius": 2.5, 
+        "radius_tolerance": 1.0,
+        "clockwise": false,
+        "strafe_while_approaching": true,
+        "flee_distance": 6.0,
+        "safe_distance": 7.0,
+        "flee_duration": 10
+      }
+    }
+  ],
+  "blood_packs": [
+    { "x": 4.0, "y": 4.0, "heal_amount": 30.0 }
+  ]
+}

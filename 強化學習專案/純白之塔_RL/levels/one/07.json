@@ -1,0 +1,25 @@
+{
+  "id": "one_07",
+  "name": "一隻機會主義",
+  "room": { "size": 10.0 },
+  "player": { "x": 7.0, "y": 1.0, "angle": 3.14159 },
+  "monsters": [
+    {
+      "x": 6.0, "y": 8.0, "health": 100.0,
+      "behavior": {
+        "type": "opportunist",
+        "attack_damage": 10.0,
+        "attack_range": 3.0,
+        "attack_cooldown_ticks": 20,
+        "safe_radius": 5.0,
+        "radius_tolerance": 1.0,
+        "clockwise": true,
+        "casting_trigger": 0.1,
+        "retreat_distance": 5.0
+      }
+    }
+  ],
+  "blood_packs": [
+    { "x": 1.0, "y": 4.0, "heal_amount": 30.0 }
+  ]
+}

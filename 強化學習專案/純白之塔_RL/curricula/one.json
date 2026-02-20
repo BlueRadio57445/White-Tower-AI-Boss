@@ -1,0 +1,13 @@
+{
+    "name": "one",
+    "description": "只訓練如何打死一個敵人",
+    "stages": [
+        {
+            "label": "一隻怪",
+            "epoch_start": 0,
+            "epoch_end": 3999,
+            "levels": ["one/01", "one/02", "one/03", "one/04", "one/05", "one/06", "one/07", "one/08"],
+            "mask": "soul_claw_only"
+        }
+    ]
+}
