@@ -24,6 +24,7 @@ Current groups and dimensions:
     monster_damage_taken      4D   damage taken ratio (1 - health) of each monster (nearest first)
     monster_angle_sincos      8D   (sin, cos) of relative angle to each monster (nearest first)
     monster_all              16D   all monster features grouped by type (dist ×4, dx_dy ×4, angle ×4)
+    ring_hit_count            1D   number of monsters in 外圈刮 ring range (inner=3.0, outer=4.5), normalized
     blood_pack_dist           3D   distance to each blood pack (nearest first)
     blood_pack_dx_dy          6D   (dx, dy) to each blood pack (nearest first)
     blood_pack_relative_angle 3D   relative angle to each blood pack (nearest first)
@@ -36,7 +37,7 @@ Current groups and dimensions:
     player_damage_taken       1D   player damage taken ratio (1 - health)
     bias                      1D   constant 1.0
     -------------------------------------------------------
-    ALL GROUPS               42D   (DEFAULT_GROUP_ORDER total)
+    ALL GROUPS               43D   (DEFAULT_GROUP_ORDER total)
 """
 
 from dataclasses import dataclass
@@ -352,6 +353,21 @@ def player_damage_taken(world: GameWorld, world_size: float) -> np.ndarray:
 def bias(world: GameWorld, world_size: float) -> np.ndarray:
     """Constant bias term. 1D."""
     return np.array([1.0])
+
+
+@feature_group("ring_hit_count", n_dims=1)
+def ring_hit_count(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Number of monsters within 外圈刮 (outer slash) ring AOE range. 1D.
+    Reads inner_radius and outer_radius from world.player_config.
+    Normalized by MAX_MONSTERS to [0, 1].
+    """
+    outer_slash = world.player_config.skills.get("outer_slash")
+    inner = outer_slash.extra_params["inner_radius"] / world_size
+    outer = outer_slash.extra_params["outer_radius"] / world_size
+    data = _get_sorted_monster_data(world, world_size)
+    count = sum(1 for d in data if inner <= d[0] <= outer)
+    return np.array([count / MAX_MONSTERS])
 
 
 @feature_group("monster_all", n_dims=16)
