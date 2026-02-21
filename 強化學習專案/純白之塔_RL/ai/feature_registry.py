@@ -26,6 +26,8 @@ Current groups and dimensions:
     monster_all              16D   all monster features grouped by type (dist ×4, dx_dy ×4, angle ×4)
     ring_hit_count            1D   number of monsters in 外圈刮 ring range (inner=3.0, outer=4.5), normalized
     movable_cast_state        3D   binary flags: [is_casting_outer_slash, is_casting_hammer, is_in_blood_pool]
+    enemy_proj_count          1D   number of active enemy projectiles, normalized by 8
+    nearest_enemy_proj        4D   nearest enemy projectile [dist, dx, dy, heading_toward]; [1,0,0,0] if none
     blood_pack_dist           3D   distance to each blood pack (nearest first)
     blood_pack_dx_dy          6D   (dx, dy) to each blood pack (nearest first)
     blood_pack_relative_angle 3D   relative angle to each blood pack (nearest first)
@@ -38,7 +40,7 @@ Current groups and dimensions:
     player_damage_taken       1D   player damage taken ratio (1 - health)
     bias                      1D   constant 1.0
     -------------------------------------------------------
-    ALL GROUPS               46D   (DEFAULT_GROUP_ORDER total)
+    ALL GROUPS               51D   (DEFAULT_GROUP_ORDER total)
 """
 
 from dataclasses import dataclass
@@ -47,6 +49,7 @@ from typing import Callable, Dict, List
 import numpy as np
 
 from game.world import GameWorld
+from game.projectile import ProjectileType
 
 # ---------------------------------------------------------------------------
 # Registry internals
@@ -370,6 +373,56 @@ def movable_cast_state(world: GameWorld, world_size: float) -> np.ndarray:
         1.0 if current == "hammer" else 0.0,
         1.0 if (current == "blood_pool" or skills.in_blood_pool) else 0.0,
     ])
+
+
+def _get_enemy_projectiles(world: GameWorld):
+    """Return active projectiles that belong to monsters (not the player)."""
+    return [
+        p for p in world.get_active_projectiles()
+        if p.projectile_type != ProjectileType.SKILL_MISSILE
+    ]
+
+
+@feature_group("enemy_proj_count", n_dims=1)
+def enemy_proj_count(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Number of active enemy projectiles. 1D.
+    Normalized by 8 (assumed max concurrent projectiles in typical encounters).
+    """
+    count = len(_get_enemy_projectiles(world))
+    return np.array([count / 8.0])
+
+
+@feature_group("nearest_enemy_proj", n_dims=4)
+def nearest_enemy_proj(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Nearest enemy projectile info. 4D: [dist, dx, dy, heading_toward].
+    - dist: normalized distance (0-1)
+    - dx, dy: relative position normalized by world_size
+    - heading_toward: dot product of projectile direction with unit vector
+      from projectile to player (1.0 = flying directly at player, -1.0 = flying away)
+    Returns [1, 0, 0, 0] when no enemy projectile exists.
+    """
+    player_pos = world.get_player_position()
+    enemy_projs = _get_enemy_projectiles(world)
+
+    if not enemy_projs:
+        return np.array([1.0, 0.0, 0.0, 0.0])
+
+    nearest = min(enemy_projs, key=lambda p: np.linalg.norm(p.position - player_pos))
+
+    diff = player_pos - nearest.position  # vector from proj to player
+    dist = np.linalg.norm(diff)
+    dx = (nearest.position[0] - player_pos[0]) / world_size
+    dy = (nearest.position[1] - player_pos[1]) / world_size
+    dist_norm = dist / world_size
+
+    if dist > 1e-6:
+        heading_toward = float(np.dot(nearest.direction, diff / dist))
+    else:
+        heading_toward = 0.0
+
+    return np.array([dist_norm, dx, dy, heading_toward])
 
 
 @feature_group("ring_hit_count", n_dims=1)
