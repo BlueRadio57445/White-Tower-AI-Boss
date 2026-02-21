@@ -25,6 +25,7 @@ Current groups and dimensions:
     monster_angle_sincos      8D   (sin, cos) of relative angle to each monster (nearest first)
     monster_all              16D   all monster features grouped by type (dist ×4, dx_dy ×4, angle ×4)
     ring_hit_count            1D   number of monsters in 外圈刮 ring range (inner=3.0, outer=4.5), normalized
+    movable_cast_state        3D   binary flags: [is_casting_outer_slash, is_casting_hammer, is_in_blood_pool]
     blood_pack_dist           3D   distance to each blood pack (nearest first)
     blood_pack_dx_dy          6D   (dx, dy) to each blood pack (nearest first)
     blood_pack_relative_angle 3D   relative angle to each blood pack (nearest first)
@@ -37,7 +38,7 @@ Current groups and dimensions:
     player_damage_taken       1D   player damage taken ratio (1 - health)
     bias                      1D   constant 1.0
     -------------------------------------------------------
-    ALL GROUPS               43D   (DEFAULT_GROUP_ORDER total)
+    ALL GROUPS               46D   (DEFAULT_GROUP_ORDER total)
 """
 
 from dataclasses import dataclass
@@ -355,6 +356,22 @@ def bias(world: GameWorld, world_size: float) -> np.ndarray:
     return np.array([1.0])
 
 
+@feature_group("movable_cast_state", n_dims=3)
+def movable_cast_state(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Binary flags for skills that allow movement during wind-up. 3D.
+    [is_casting_outer_slash, is_casting_hammer, is_in_blood_pool]
+    血池包含 wind-up 期間 (current_skill == "blood_pool") 和池中期間 (in_blood_pool)。
+    """
+    skills = world.player.skills
+    current = skills.current_skill
+    return np.array([
+        1.0 if current == "outer_slash" else 0.0,
+        1.0 if current == "hammer" else 0.0,
+        1.0 if (current == "blood_pool" or skills.in_blood_pool) else 0.0,
+    ])
+
+
 @feature_group("ring_hit_count", n_dims=1)
 def ring_hit_count(world: GameWorld, world_size: float) -> np.ndarray:
     """
@@ -399,8 +416,9 @@ DEFAULT_GROUP_ORDER = [
     "casting_info",         # 9D
     "player_health",        # 1D
     "ring_hit_count",       # 1D
+    "movable_cast_state",   # 3D
     "bias",                 # 1D
-]                           # total = 43D
+]                           # total = 46D
 
 
 class SelectiveFeatureExtractor:
