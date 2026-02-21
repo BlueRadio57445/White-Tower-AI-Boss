@@ -97,7 +97,14 @@ def _get_sorted_monster_data(world: GameWorld, world_size: float):
 
     Returns list of (dist, dx, dy, rel_angle, health_ratio) tuples,
     zero-padded to MAX_MONSTERS entries.
+
+    Results are cached on world._feature_cache (per extract() call) when available.
     """
+    cache = getattr(world, '_feature_cache', None)
+    cache_key = f'monster_{world_size}'
+    if cache is not None and cache_key in cache:
+        return cache[cache_key]
+
     player_pos = world.get_player_position()
     player_angle = world.get_player_angle()
 
@@ -119,7 +126,10 @@ def _get_sorted_monster_data(world: GameWorld, world_size: float):
     while len(data) < MAX_MONSTERS:
         data.append((0.0, 0.0, 0.0, 0.0, 0.0))
 
-    return data[:MAX_MONSTERS]
+    result = data[:MAX_MONSTERS]
+    if cache is not None:
+        cache[cache_key] = result
+    return result
 
 
 def _get_sorted_blood_pack_data(world: GameWorld, world_size: float):
@@ -128,7 +138,14 @@ def _get_sorted_blood_pack_data(world: GameWorld, world_size: float):
 
     Returns list of (dist, dx, dy, rel_angle) tuples,
     zero-padded to MAX_BLOOD_PACKS entries.
+
+    Results are cached on world._feature_cache (per extract() call) when available.
     """
+    cache = getattr(world, '_feature_cache', None)
+    cache_key = f'blood_{world_size}'
+    if cache is not None and cache_key in cache:
+        return cache[cache_key]
+
     player_pos = world.get_player_position()
     player_angle = world.get_player_angle()
     blood_positions = world.get_alive_blood_pack_positions()
@@ -151,7 +168,10 @@ def _get_sorted_blood_pack_data(world: GameWorld, world_size: float):
     while len(data) < MAX_BLOOD_PACKS:
         data.append((0.0, 0.0, 0.0, 0.0))
 
-    return data[:MAX_BLOOD_PACKS]
+    result = data[:MAX_BLOOD_PACKS]
+    if cache is not None:
+        cache[cache_key] = result
+    return result
 
 
 def _raycast_to_wall(pos: np.ndarray, cos_a: float, sin_a: float, world_size: float) -> float:
@@ -387,7 +407,11 @@ class SelectiveFeatureExtractor:
         """Extract feature vector from current world state."""
         if world.player is None:
             return np.zeros(self.n_features)
-        parts = [g.fn(world, self.world_size) for g in self.groups]
+        world._feature_cache = {}
+        try:
+            parts = [g.fn(world, self.world_size) for g in self.groups]
+        finally:
+            del world._feature_cache
         return np.concatenate(parts)
 
     def describe(self) -> str:
