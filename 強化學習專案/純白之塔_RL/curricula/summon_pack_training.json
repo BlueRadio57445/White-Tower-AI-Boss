@@ -1,13 +1,13 @@
 {
-    "name": "soul_palm_training",
-    "description": "只訓練如何使用靈魂掌技能",
+    "name": "summon_pack_training",
+    "description": "只訓練如何使用召喚血包技能",
     "stages": [
         {
             "label": "怪物",
             "epoch_start": 0,
             "epoch_end": 399,
             "levels": ["one/01", "one/02", "one/03", "one/04", "one/05", "one/06", "one/07", "one/08", "01", "01-01", "11", "12"],
-            "mask": "soul_palm_only"
+            "mask": "summon_pack_only"
         }
     ]
 }

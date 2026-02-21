@@ -1,0 +1,32 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_relative_angle",
+    "monster_angle_sincos"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "monster_relative_angle",
+      "score": 5.0762,
+      "n_features": 5,
+      "selected_so_far": [
+        "bias",
+        "monster_relative_angle"
+      ]
+    },
+    {
+      "step": 2,
+      "added": "monster_angle_sincos",
+      "score": 77.5254,
+      "n_features": 13,
+      "selected_so_far": [
+        "bias",
+        "monster_relative_angle",
+        "monster_angle_sincos"
+      ]
+    }
+  ],
+  "final_score": 77.5254,
+  "total_dims": 13
+}

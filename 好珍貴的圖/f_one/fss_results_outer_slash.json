@@ -1,0 +1,45 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_angle_sincos",
+    "player_health",
+    "player_damage_taken"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "monster_angle_sincos",
+      "score": 251.2328,
+      "n_features": 9,
+      "selected_so_far": [
+        "bias",
+        "monster_angle_sincos"
+      ]
+    },
+    {
+      "step": 2,
+      "added": "player_health",
+      "score": 278.7065,
+      "n_features": 10,
+      "selected_so_far": [
+        "bias",
+        "monster_angle_sincos",
+        "player_health"
+      ]
+    },
+    {
+      "step": 3,
+      "added": "player_damage_taken",
+      "score": 286.496,
+      "n_features": 11,
+      "selected_so_far": [
+        "bias",
+        "monster_angle_sincos",
+        "player_health",
+        "player_damage_taken"
+      ]
+    }
+  ],
+  "final_score": 286.496,
+  "total_dims": 11
+}

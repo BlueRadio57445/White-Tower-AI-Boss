@@ -1,0 +1,5 @@
+{
+    "name": "soul_palm_only",
+    "description": "允許移動 + 召喚血包",
+    "allowed_actions": [0, 1, 2, 3, 4, 12]
+}
