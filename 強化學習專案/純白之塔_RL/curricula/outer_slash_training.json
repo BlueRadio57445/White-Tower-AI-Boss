@@ -3,10 +3,10 @@
     "description": "只訓練如何使用外圈刮技能",
     "stages": [
         {
-            "label": "怪物",
+            "label": "四隻怪",
             "epoch_start": 0,
-            "epoch_end": 399,
-            "levels": ["one/01", "one/02", "one/03", "one/04", "one/05", "one/06", "one/07", "one/08", "01", "01-01", "11", "12"],
+            "epoch_end": 3999,
+            "levels": ["01", "02", "03", "04", "05", "06", "07", "08", "11", "12"],
             "mask": "outer_slash_only"
         }
     ]

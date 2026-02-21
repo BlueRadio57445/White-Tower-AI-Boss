@@ -1,0 +1,5 @@
+{
+    "name": "blood_pool_only",
+    "description": "允許移動 + 血池",
+    "allowed_actions": [0, 1, 2, 3, 4, 11]
+}

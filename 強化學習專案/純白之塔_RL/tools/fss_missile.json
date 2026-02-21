@@ -1,16 +1,18 @@
 {
-    "fixed_groups": ["bias"],
-    "candidate_groups": [
+    "fixed_groups": [
+        "bias",
         "monster_dist",
-        "monster_dx_dy",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_relative_angle"
+    ],
+    "candidate_groups": [
         "monster_relative_angle",
         "monster_health",
         "monster_damage_taken",
-        "monster_angle_sincos",
-        "blood_pack_dist",
-        "blood_pack_dx_dy",
-        "blood_pack_relative_angle",
         "blood_pack_angle_sincos",
+        "enemy_proj_count",
+        "nearest_enemy_proj",
         "wall_dist",
         "casting_info",
         "player_health",

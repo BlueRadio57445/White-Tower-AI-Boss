@@ -1,13 +1,13 @@
 {
-    "name": "missile_training",
-    "description": "只訓練如何使用飛彈技能",
+    "name": "four",
+    "description": "打各種組合的四個敵人",
     "stages": [
         {
             "label": "四隻怪",
             "epoch_start": 0,
             "epoch_end": 3999,
             "levels": ["01", "02", "03", "04", "05", "06", "07", "08", "11", "12"],
-            "mask": "missile_only"
+            "mask": "all_skills"
         }
     ]
 }
