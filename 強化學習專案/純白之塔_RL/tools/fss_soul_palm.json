@@ -4,13 +4,14 @@
         "monster_dist",
         "monster_angle_sincos",
         "blood_pack_dist",
-        "blood_pack_relative_angle"
+        "blood_pack_angle_sincos"
+        
     ],
     "candidate_groups": [
         "monster_relative_angle",
         "monster_health",
         "monster_damage_taken",
-        "blood_pack_angle_sincos",
+        "blood_pack_relative_angle",
         "enemy_proj_count",
         "nearest_enemy_proj",
         "wall_dist",
