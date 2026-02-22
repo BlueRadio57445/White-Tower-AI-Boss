@@ -585,16 +585,26 @@ def monster_all(world: GameWorld, world_size: float) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 DEFAULT_GROUP_ORDER = [
-    "monster_all",          # 16D
-    "blood_pack_all",       # 12D
-    "player_facing",        # 2D
+    "monster_dist",         # 4D
+    "monster_angle_sincos", # 8D
+    "monster_relative_angle",#4D
+    "blood_pack_dist",      # 3D
+    "blood_pack_angle_sincos",#6D
+    "blood_pack_relative_angle",#3D
+    "blood_pack_count",     # 1D
+    "enemy_proj_count",     # 1D
+    "nearest_enemy_proj",   # 4D
     "wall_dist",            # 1D
+    "wall_dist_back",       # 1D
     "casting_info",         # 9D
     "player_health",        # 1D
+    "total_monster_hp",     # 1D
+    "alive_monster_count",  # 1D
     "ring_hit_count",       # 1D
+    "blood_pool_remaining", # 1D
     "movable_cast_state",   # 3D
     "bias",                 # 1D
-]                           # total = 46D
+]                           # total = 54D
 
 
 class SelectiveFeatureExtractor:
