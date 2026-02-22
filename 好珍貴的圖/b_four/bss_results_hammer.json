@@ -1,0 +1,46 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "monster_health",
+    "monster_damage_taken",
+    "blood_pack_relative_angle",
+    "enemy_proj_count",
+    "nearest_enemy_proj",
+    "wall_dist",
+    "casting_info",
+    "player_health",
+    "player_damage_taken",
+    "movable_cast_state"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "removed": "monster_relative_angle",
+      "score": 224.1132,
+      "n_features": 53,
+      "remaining": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "monster_health",
+        "monster_damage_taken",
+        "blood_pack_relative_angle",
+        "enemy_proj_count",
+        "nearest_enemy_proj",
+        "wall_dist",
+        "casting_info",
+        "player_health",
+        "player_damage_taken",
+        "movable_cast_state"
+      ]
+    }
+  ],
+  "final_score": 224.1132,
+  "total_dims": 53
+}
