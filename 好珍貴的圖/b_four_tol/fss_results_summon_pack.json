@@ -1,0 +1,46 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "wall_dist_back",
+    "ready_skill_count"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "wall_dist_back",
+      "score": 252.898,
+      "n_features": 23,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "wall_dist_back"
+      ],
+      "tolerance_used": false
+    },
+    {
+      "step": 2,
+      "added": "ready_skill_count",
+      "score": 237.564,
+      "n_features": 24,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "wall_dist_back",
+        "ready_skill_count"
+      ],
+      "tolerance_used": true
+    }
+  ],
+  "final_score": 237.564,
+  "total_dims": 24
+}

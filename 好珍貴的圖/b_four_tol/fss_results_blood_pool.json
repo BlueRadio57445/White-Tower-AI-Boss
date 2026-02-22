@@ -1,0 +1,83 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "nearest_enemy_proj",
+    "hp_advantage",
+    "ready_skill_count",
+    "movable_cast_state"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "nearest_enemy_proj",
+      "score": 43.708,
+      "n_features": 26,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "nearest_enemy_proj"
+      ],
+      "tolerance_used": false
+    },
+    {
+      "step": 2,
+      "added": "hp_advantage",
+      "score": 49.623,
+      "n_features": 27,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "nearest_enemy_proj",
+        "hp_advantage"
+      ],
+      "tolerance_used": false
+    },
+    {
+      "step": 3,
+      "added": "ready_skill_count",
+      "score": 42.775,
+      "n_features": 28,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "nearest_enemy_proj",
+        "hp_advantage",
+        "ready_skill_count"
+      ],
+      "tolerance_used": true
+    },
+    {
+      "step": 4,
+      "added": "movable_cast_state",
+      "score": 50.066,
+      "n_features": 31,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "nearest_enemy_proj",
+        "hp_advantage",
+        "ready_skill_count",
+        "movable_cast_state"
+      ],
+      "tolerance_used": false
+    }
+  ],
+  "final_score": 50.066,
+  "total_dims": 31
+}

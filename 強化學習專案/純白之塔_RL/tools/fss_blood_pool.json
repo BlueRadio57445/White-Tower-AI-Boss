@@ -30,6 +30,7 @@
     "eval_epochs": 1000,
     "steps_per_epoch": 200,
     "eval_window": 100,
+    "tolerance_count": 1,
     "output": "fss_results_blood_pool.json",
 
     "注意": "以下是 PPO 超參數，可選填，不填則使用訓練預設值",

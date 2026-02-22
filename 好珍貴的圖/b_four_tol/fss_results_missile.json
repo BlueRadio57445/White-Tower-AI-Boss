@@ -1,0 +1,64 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "enemy_proj_count",
+    "monster_health",
+    "monster_facing_sincos"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "enemy_proj_count",
+      "score": 122.936,
+      "n_features": 23,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "enemy_proj_count"
+      ],
+      "tolerance_used": false
+    },
+    {
+      "step": 2,
+      "added": "monster_health",
+      "score": 119.127,
+      "n_features": 27,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "enemy_proj_count",
+        "monster_health"
+      ],
+      "tolerance_used": true
+    },
+    {
+      "step": 3,
+      "added": "monster_facing_sincos",
+      "score": 128.311,
+      "n_features": 35,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "enemy_proj_count",
+        "monster_health",
+        "monster_facing_sincos"
+      ],
+      "tolerance_used": false
+    }
+  ],
+  "final_score": 128.311,
+  "total_dims": 35
+}

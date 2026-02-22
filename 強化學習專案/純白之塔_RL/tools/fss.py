@@ -16,6 +16,7 @@ Config JSON format:
         "eval_epochs":      300,
         "steps_per_epoch":  50,
         "eval_window":      50,
+        "tolerance_count":  1,
         "output":           "fss_results.json"
     }
 
@@ -26,6 +27,9 @@ Fields:
     eval_epochs      Training epochs per candidate evaluation.
     steps_per_epoch  Steps per epoch (default: 50).
     eval_window      How many final epochs to average for scoring (default: 50).
+    tolerance_count  Steps allowed without beating the all-time best score.
+                     In each such step the best candidate is still added.
+                     Does not reset on improvement (default: 0).
     output           Path to save results JSON (default: fss_results.json).
 """
 
@@ -150,10 +154,13 @@ def run_fss(config_path: str) -> dict:
     print("Forward Stepwise Selection")
     print("=" * 60)
     print(curriculum.describe())
+    tolerance_count = cfg.get("tolerance_count", 0)
+
     print(f"\nFixed groups   : {fixed}")
     print(f"Candidates     : {remaining}")
     print(f"Eval epochs    : {cfg['eval_epochs']}")
     print(f"Eval window    : {cfg.get('eval_window', 50)}")
+    print(f"Tolerance count: {tolerance_count}")
     print()
 
     log.write("start",
@@ -161,6 +168,7 @@ def run_fss(config_path: str) -> dict:
               candidates=remaining,
               eval_epochs=cfg["eval_epochs"],
               eval_window=cfg.get("eval_window", 50),
+              tolerance_count=tolerance_count,
               curriculum=cfg["curriculum"])
 
     steps = []
@@ -175,21 +183,25 @@ def run_fss(config_path: str) -> dict:
               n_features=SelectiveFeatureExtractor(fixed).n_features,
               elapsed_s=round(elapsed, 1))
 
+    best_ever_score = current_score
+    tolerance_left = tolerance_count
+
     step = 0
     while remaining:
         step += 1
         print(f"\n--- Step {step} ---")
-        print(f"Current groups : {fixed}  (score={current_score:.3f})")
+        print(f"Current groups : {fixed}  (score={current_score:.3f}, best={best_ever_score:.3f}, "
+              f"tolerance={tolerance_left}/{tolerance_count})")
 
-        best_candidate = None
-        best_score = current_score  # must strictly improve
+        step_best_candidate = None
+        step_best_score = -float("inf")
 
         for candidate in remaining:
             trial = fixed + [candidate]
             t0 = time.time()
             score = _evaluate(trial, curriculum, cfg)
             elapsed = time.time() - t0
-            marker = " *" if score > best_score else ""
+            marker = " *" if score > step_best_score else ""
             print(f"  + {candidate:<30} score={score:.3f}  ({elapsed:.1f}s){marker}")
             log.write("eval",
                       step=step,
@@ -198,33 +210,52 @@ def run_fss(config_path: str) -> dict:
                       score=round(score, 4),
                       n_features=SelectiveFeatureExtractor(trial).n_features,
                       elapsed_s=round(elapsed, 1))
-            if score > best_score:
-                best_score = score
-                best_candidate = candidate
+            if score > step_best_score:
+                step_best_score = score
+                step_best_candidate = candidate
 
-        if best_candidate is None:
-            print(f"\nNo candidate improved baseline ({current_score:.3f}). Stopping.")
-            log.write("no_improvement", step=step, baseline_score=round(current_score, 4))
+        improved = step_best_score > best_ever_score
+        if improved:
+            best_ever_score = step_best_score
+        elif tolerance_left > 0:
+            tolerance_left -= 1
+            used = tolerance_count - tolerance_left
+            print(f"\nNo improvement over best ({best_ever_score:.3f}). "
+                  f"Tolerance {used}/{tolerance_count}: adding '{step_best_candidate}' "
+                  f"(score={step_best_score:.3f})")
+            log.write("tolerance",
+                      step=step,
+                      candidate=step_best_candidate,
+                      step_best_score=round(step_best_score, 4),
+                      best_ever_score=round(best_ever_score, 4),
+                      tolerance_used=used,
+                      tolerance_count=tolerance_count)
+        else:
+            print(f"\nNo candidate improved best score ({best_ever_score:.3f}) and "
+                  f"tolerance exhausted. Stopping.")
+            log.write("no_improvement", step=step, best_ever_score=round(best_ever_score, 4))
             break
 
-        fixed.append(best_candidate)
-        remaining.remove(best_candidate)
+        fixed.append(step_best_candidate)
+        remaining.remove(step_best_candidate)
         extractor_tmp = SelectiveFeatureExtractor(fixed)
         steps.append({
             "step": step,
-            "added": best_candidate,
-            "score": round(best_score, 4),
+            "added": step_best_candidate,
+            "score": round(step_best_score, 4),
             "n_features": extractor_tmp.n_features,
             "selected_so_far": list(fixed),
+            "tolerance_used": not improved,
         })
-        current_score = best_score
+        current_score = step_best_score
         log.write("added",
                   step=step,
-                  group=best_candidate,
+                  group=step_best_candidate,
                   score=round(current_score, 4),
                   n_features=extractor_tmp.n_features,
-                  selected=list(fixed))
-        print(f"\n→ Added: '{best_candidate}'  "
+                  selected=list(fixed),
+                  tolerance_used=not improved)
+        print(f"\n→ Added: '{step_best_candidate}'  "
               f"new score={current_score:.3f}  "
               f"total dims={extractor_tmp.n_features}")
 

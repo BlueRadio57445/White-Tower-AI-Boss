@@ -1,0 +1,83 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "monster_health",
+    "hp_advantage",
+    "total_monster_hp",
+    "player_health"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "monster_health",
+      "score": 126.8207,
+      "n_features": 26,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "monster_health"
+      ],
+      "tolerance_used": false
+    },
+    {
+      "step": 2,
+      "added": "hp_advantage",
+      "score": 154.9165,
+      "n_features": 27,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "monster_health",
+        "hp_advantage"
+      ],
+      "tolerance_used": false
+    },
+    {
+      "step": 3,
+      "added": "total_monster_hp",
+      "score": 152.1309,
+      "n_features": 28,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "monster_health",
+        "hp_advantage",
+        "total_monster_hp"
+      ],
+      "tolerance_used": true
+    },
+    {
+      "step": 4,
+      "added": "player_health",
+      "score": 198.1004,
+      "n_features": 29,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "monster_health",
+        "hp_advantage",
+        "total_monster_hp",
+        "player_health"
+      ],
+      "tolerance_used": false
+    }
+  ],
+  "final_score": 198.1004,
+  "total_dims": 29
+}
