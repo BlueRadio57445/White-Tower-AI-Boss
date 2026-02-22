@@ -1,0 +1,43 @@
+{
+    "fixed_groups": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos"
+        
+    ],
+    "candidate_groups": [
+        "monster_relative_angle",
+        "monster_health",
+        "blood_pack_relative_angle",
+        "enemy_proj_count",
+        "nearest_enemy_proj",
+        "wall_dist",
+        "casting_info",
+        "player_health",
+        "ring_hit_count",
+        "movable_cast_state",
+        "total_monster_hp",
+        "alive_monster_count",
+        "ready_skill_count",
+        "hp_advantage",
+        "blood_pack_count"
+    ],
+    "curriculum": "curricula/all_training.json",
+    "eval_epochs": 1000,
+    "steps_per_epoch": 200,
+    "eval_window": 100,
+    "output": "fss_results_all.json",
+
+    "注意": "以下是 PPO 超參數，可選填，不填則使用訓練預設值",
+    "gamma": 0.99,
+    "lmbda": 0.95,
+    "epsilon": 0.2,
+    "sigma_init": 0.6,
+    "sigma_min": 0.15,
+    "sigma_decay": 0.9998,
+    "lr_actor_discrete": 0.003,
+    "lr_actor_continuous": 0.002,
+    "lr_critic": 0.007
+}

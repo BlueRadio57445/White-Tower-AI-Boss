@@ -1,0 +1,13 @@
+{
+    "name": "all_training",
+    "description": "訓練使用所有技能",
+    "stages": [
+        {
+            "label": "四隻怪",
+            "epoch_start": 0,
+            "epoch_end": 3999,
+            "levels": ["01", "02", "03", "04", "05", "06", "07", "08", "11", "12"],
+            "mask": "all_skills"
+        }
+    ]
+}
