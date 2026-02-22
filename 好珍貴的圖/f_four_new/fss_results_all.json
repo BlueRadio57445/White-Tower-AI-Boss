@@ -1,0 +1,79 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "wall_dist",
+    "blood_pack_relative_angle",
+    "player_health",
+    "total_monster_hp"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "wall_dist",
+      "score": 489.0399,
+      "n_features": 23,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "wall_dist"
+      ]
+    },
+    {
+      "step": 2,
+      "added": "blood_pack_relative_angle",
+      "score": 615.5301,
+      "n_features": 26,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "wall_dist",
+        "blood_pack_relative_angle"
+      ]
+    },
+    {
+      "step": 3,
+      "added": "player_health",
+      "score": 636.3845,
+      "n_features": 27,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "wall_dist",
+        "blood_pack_relative_angle",
+        "player_health"
+      ]
+    },
+    {
+      "step": 4,
+      "added": "total_monster_hp",
+      "score": 697.4704,
+      "n_features": 28,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "wall_dist",
+        "blood_pack_relative_angle",
+        "player_health",
+        "total_monster_hp"
+      ]
+    }
+  ],
+  "final_score": 697.4704,
+  "total_dims": 28
+}

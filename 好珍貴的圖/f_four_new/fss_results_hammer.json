@@ -1,0 +1,28 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "enemy_proj_count"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "enemy_proj_count",
+      "score": 241.3957,
+      "n_features": 23,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "enemy_proj_count"
+      ]
+    }
+  ],
+  "final_score": 241.3957,
+  "total_dims": 23
+}

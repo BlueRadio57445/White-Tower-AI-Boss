@@ -1,0 +1,28 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "casting_info"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "casting_info",
+      "score": 37.849,
+      "n_features": 31,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "casting_info"
+      ]
+    }
+  ],
+  "final_score": 37.849,
+  "total_dims": 31
+}

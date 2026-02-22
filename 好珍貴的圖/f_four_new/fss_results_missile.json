@@ -1,0 +1,28 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "hp_advantage"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "hp_advantage",
+      "score": 131.954,
+      "n_features": 23,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "hp_advantage"
+      ]
+    }
+  ],
+  "final_score": 131.954,
+  "total_dims": 23
+}
