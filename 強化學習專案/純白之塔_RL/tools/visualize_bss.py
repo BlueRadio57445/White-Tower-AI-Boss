@@ -190,7 +190,36 @@ def visualize(log_path: str, save_path: str = None, show: bool = True) -> None:
                             -0.5, n_cands - 0.5],
                     origin='lower')
 
-    # Mark the removed group at each step with a white border
+    # Mark cells that beat the baseline with black borders,
+    # merging adjacent rows in the same column into one large rectangle.
+    for col_i, s in enumerate(steps_sorted):
+        beating_rows = sorted(
+            cand_idx[cand]
+            for cand, score in step_data[s]["scores"].items()
+            if score > baseline and cand in cand_idx
+        )
+        # Find contiguous runs and draw one rectangle per run
+        if beating_rows:
+            run_start = beating_rows[0]
+            run_end = beating_rows[0]
+            for row_i in beating_rows[1:]:
+                if row_i == run_end + 1:
+                    run_end = row_i
+                else:
+                    rect = matplotlib.patches.Rectangle(
+                        (col_i - 0.5, run_start - 0.5), 1, run_end - run_start + 1,
+                        linewidth=2.0, edgecolor='black', facecolor='none', zorder=4
+                    )
+                    ax2.add_patch(rect)
+                    run_start = row_i
+                    run_end = row_i
+            rect = matplotlib.patches.Rectangle(
+                (col_i - 0.5, run_start - 0.5), 1, run_end - run_start + 1,
+                linewidth=2.0, edgecolor='black', facecolor='none', zorder=4
+            )
+            ax2.add_patch(rect)
+
+    # Mark the removed group at each step with a white border (on top)
     for col_i, s in enumerate(steps_sorted):
         removed = step_data[s]["removed"]
         if removed and removed in cand_idx:
@@ -214,7 +243,7 @@ def visualize(log_path: str, save_path: str = None, show: bool = True) -> None:
     ax2.set_yticklabels(all_candidates, fontsize=8)
     ax2.set_xticks(range(len(steps_sorted)))
     ax2.set_xticklabels([f"Step {s}" for s in steps_sorted], fontsize=8)
-    ax2.set_title("Score After Removing Each Candidate  (white box = removed, gray = already gone)")
+    ax2.set_title("Score After Removing Each Candidate  (white box = removed, black dashed = beats baseline, gray = already gone)")
     plt.colorbar(im, ax=ax2, fraction=0.03, pad=0.02, label='score')
 
     # Summary text
