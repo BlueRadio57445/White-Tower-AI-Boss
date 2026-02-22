@@ -190,13 +190,22 @@ def visualize(log_path: str, save_path: str = None, show: bool = True) -> None:
                             -0.5, n_cands - 0.5],
                     origin='lower')
 
-    # Mark cells that beat the baseline with black borders,
+    # Build per-step reference score (= score after previous step's removal)
+    step_ref = {}
+    ref_score = baseline
+    for s in steps_sorted:
+        step_ref[s] = ref_score
+        removed = step_data[s]["removed"]
+        if removed and removed in step_data[s]["scores"]:
+            ref_score = step_data[s]["scores"][removed]
+
+    # Mark cells that beat the previous step's selected score with black borders,
     # merging adjacent rows in the same column into one large rectangle.
     for col_i, s in enumerate(steps_sorted):
         beating_rows = sorted(
             cand_idx[cand]
             for cand, score in step_data[s]["scores"].items()
-            if score > baseline and cand in cand_idx
+            if score > step_ref[s] and cand in cand_idx
         )
         # Find contiguous runs and draw one rectangle per run
         if beating_rows:
@@ -243,7 +252,7 @@ def visualize(log_path: str, save_path: str = None, show: bool = True) -> None:
     ax2.set_yticklabels(all_candidates, fontsize=8)
     ax2.set_xticks(range(len(steps_sorted)))
     ax2.set_xticklabels([f"Step {s}" for s in steps_sorted], fontsize=8)
-    ax2.set_title("Score After Removing Each Candidate  (white box = removed, black dashed = beats baseline, gray = already gone)")
+    ax2.set_title("Score After Removing Each Candidate  (white box = removed, black box = beats prev step, gray = already gone)")
     plt.colorbar(im, ax=ax2, fraction=0.03, pad=0.02, label='score')
 
     # Summary text
