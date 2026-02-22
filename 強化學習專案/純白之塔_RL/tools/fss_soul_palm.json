@@ -10,10 +10,12 @@
     "candidate_groups": [
         "monster_relative_angle",
         "monster_health",
+        "monster_facing_sincos",
         "blood_pack_relative_angle",
         "enemy_proj_count",
         "nearest_enemy_proj",
         "wall_dist",
+        "wall_dist_back",
         "casting_info",
         "player_health",
         "total_monster_hp",

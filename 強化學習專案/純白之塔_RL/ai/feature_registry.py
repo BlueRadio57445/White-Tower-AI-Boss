@@ -23,8 +23,10 @@ Current groups and dimensions:
     monster_health            4D   health ratio of each monster (nearest first)
     monster_damage_taken      4D   damage taken ratio (1 - health) of each monster (nearest first)
     monster_angle_sincos      8D   (sin, cos) of relative angle to each monster (nearest first)
+    monster_facing_sincos     8D   (sin, cos) of monster facing dir relative to monster→player dir
     monster_all              16D   all monster features grouped by type (dist ×4, dx_dy ×4, angle ×4)
     ring_hit_count            1D   number of monsters in 外圈刮 ring range (inner=3.0, outer=4.5), normalized
+    blood_pool_remaining      1D   blood pool remaining ticks normalized (0=not in pool, 1=just entered)
     movable_cast_state        3D   binary flags: [is_casting_outer_slash, is_casting_hammer, is_in_blood_pool]
     enemy_proj_count          1D   number of active enemy projectiles, normalized by 8
     nearest_enemy_proj        4D   nearest enemy projectile [dist, dx, dy, heading_toward]; [1,0,0,0] if none
@@ -35,6 +37,7 @@ Current groups and dimensions:
     blood_pack_all           12D   all blood pack features grouped by type (dist ×3, dx_dy ×3, angle ×3)
     player_facing             2D   (cos, sin) of player facing angle
     wall_dist                 1D   distance to wall in facing direction
+    wall_dist_back            1D   distance to wall in backward direction
     casting_info              9D   (casting_progress, cooldown_ratio ×8 skills)
     player_health             1D   player health ratio (0-1)
     player_damage_taken       1D   player damage taken ratio (1 - health)
@@ -105,8 +108,11 @@ def _get_sorted_monster_data(world: GameWorld, world_size: float):
     """
     Compute and sort monster data by distance (nearest first).
 
-    Returns list of (dist, dx, dy, rel_angle, health_ratio) tuples,
+    Returns list of (dist, dx, dy, rel_angle, health_ratio, facing_rel_angle) tuples,
     zero-padded to MAX_MONSTERS entries.
+
+    facing_rel_angle: monster's facing direction relative to the monster→player
+    direction.  0 = facing directly at player, ±π = facing away.
 
     Results are cached on world._feature_cache (per extract() call) when available.
     """
@@ -119,7 +125,11 @@ def _get_sorted_monster_data(world: GameWorld, world_size: float):
     player_angle = world.get_player_angle()
 
     data = []
-    for pos, health_ratio in world.get_alive_monster_positions_and_health():
+    for monster in world.monsters:
+        if not (monster.is_alive and monster.has_position()):
+            continue
+        pos = monster.position.as_array()
+        health_ratio = monster.health.percentage
         dx = (pos[0] - player_pos[0]) / world_size
         dy = (pos[1] - player_pos[1]) / world_size
         dist = np.linalg.norm(pos - player_pos) / world_size
@@ -128,13 +138,21 @@ def _get_sorted_monster_data(world: GameWorld, world_size: float):
             np.sin(angle_to - player_angle),
             np.cos(angle_to - player_angle)
         )
-        data.append((dist, dx, dy, rel_angle, health_ratio))
+        # Monster's facing relative to the monster→player direction
+        m2p_angle = np.arctan2(
+            player_pos[1] - pos[1], player_pos[0] - pos[0]
+        )
+        facing_rel = np.arctan2(
+            np.sin(monster.position.angle - m2p_angle),
+            np.cos(monster.position.angle - m2p_angle)
+        )
+        data.append((dist, dx, dy, rel_angle, health_ratio, facing_rel))
 
     data.sort(key=lambda x: x[0])
 
     # Zero-pad
     while len(data) < MAX_MONSTERS:
-        data.append((0.0, 0.0, 0.0, 0.0, 0.0))
+        data.append((0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
 
     result = data[:MAX_MONSTERS]
     if cache is not None:
@@ -264,6 +282,21 @@ def monster_angle_sincos(world: GameWorld, world_size: float) -> np.ndarray:
     return np.array([v for d in data for v in (np.sin(d[3]), np.cos(d[3]))])
 
 
+@feature_group("monster_facing_sincos", n_dims=8)
+def monster_facing_sincos(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Sin/cos of monster facing direction relative to monster→player direction. 8D.
+    Output: [sin1,cos1, sin2,cos2, sin3,cos3, sin4,cos4]
+
+    cos ≈ +1: monster facing toward player (面向Agent)
+    cos ≈ -1: monster facing away from player (背向Agent)
+    sin > 0:  monster looking to one side
+    sin < 0:  monster looking to the other side
+    """
+    data = _get_sorted_monster_data(world, world_size)
+    return np.array([v for d in data for v in (np.sin(d[5]), np.cos(d[5]))])
+
+
 @feature_group("blood_pack_dist", n_dims=3)
 def blood_pack_dist(world: GameWorld, world_size: float) -> np.ndarray:
     """Distance to each blood pack (nearest first). 3D."""
@@ -323,6 +356,16 @@ def wall_dist(world: GameWorld, world_size: float) -> np.ndarray:
     pos = world.get_player_position()
     angle = world.get_player_angle()
     cos_a, sin_a = np.cos(angle), np.sin(angle)
+    dist = _raycast_to_wall(pos, cos_a, sin_a, world_size) / world_size
+    return np.array([dist])
+
+
+@feature_group("wall_dist_back", n_dims=1)
+def wall_dist_back(world: GameWorld, world_size: float) -> np.ndarray:
+    """Distance to wall in player backward direction. 1D."""
+    pos = world.get_player_position()
+    angle = world.get_player_angle()
+    cos_a, sin_a = -np.cos(angle), -np.sin(angle)
     dist = _raycast_to_wall(pos, cos_a, sin_a, world_size) / world_size
     return np.array([dist])
 
@@ -422,6 +465,21 @@ def blood_pack_count(world: GameWorld, world_size: float) -> np.ndarray:
 def bias(world: GameWorld, world_size: float) -> np.ndarray:
     """Constant bias term. 1D."""
     return np.array([1.0])
+
+
+@feature_group("blood_pool_remaining", n_dims=1)
+def blood_pool_remaining(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Blood pool remaining duration, normalized. 1D.
+    0.0 = not in blood pool (or about to emerge)
+    1.0 = just entered blood pool
+    Useful for timing the emerge AOE.
+    """
+    skills = world.player.skills
+    if not skills.in_blood_pool:
+        return np.array([0.0])
+    pool_duration = world.player_config.skills["blood_pool"].extra_params.get("pool_duration", 8)
+    return np.array([skills.blood_pool_remaining / pool_duration])
 
 
 @feature_group("movable_cast_state", n_dims=3)

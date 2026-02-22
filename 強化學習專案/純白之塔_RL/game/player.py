@@ -152,11 +152,11 @@ class PlayerConfig:
                     skill_id="soul_claw",
                     name="靈魂爪",
                     cooldown_ticks=25,
-                    wind_up_ticks=8,
+                    wind_up_ticks=5,
                     can_move_during_wind_up=False,
                     requires_aim=True,
                     aim_actor_index=4,  # Uses aim_claw actor
-                    damage=20.0,
+                    damage=25.0,
                     range=6.0,  # length
                     angle_tolerance=0.0,  # Not used for rectangle
                     shape_type=SkillShapeType.RECTANGLE,
@@ -171,11 +171,11 @@ class PlayerConfig:
                     skill_id="soul_palm",
                     name="靈魂掌",
                     cooldown_ticks=25,
-                    wind_up_ticks=8,
+                    wind_up_ticks=5,
                     can_move_during_wind_up=False,
                     requires_aim=True,
                     aim_actor_index=5,  # Uses aim_palm actor
-                    damage=20.0,
+                    damage=25.0,
                     range=6.0,  # length
                     angle_tolerance=0.0,  # Not used for rectangle
                     shape_type=SkillShapeType.RECTANGLE,
