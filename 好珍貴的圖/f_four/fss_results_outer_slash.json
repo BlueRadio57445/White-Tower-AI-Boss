@@ -1,0 +1,98 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "blood_pack_relative_angle",
+    "wall_dist",
+    "nearest_enemy_proj",
+    "monster_health",
+    "ring_hit_count"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "blood_pack_relative_angle",
+      "score": 134.74,
+      "n_features": 25,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "blood_pack_relative_angle"
+      ]
+    },
+    {
+      "step": 2,
+      "added": "wall_dist",
+      "score": 136.318,
+      "n_features": 26,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "blood_pack_relative_angle",
+        "wall_dist"
+      ]
+    },
+    {
+      "step": 3,
+      "added": "nearest_enemy_proj",
+      "score": 137.838,
+      "n_features": 30,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "blood_pack_relative_angle",
+        "wall_dist",
+        "nearest_enemy_proj"
+      ]
+    },
+    {
+      "step": 4,
+      "added": "monster_health",
+      "score": 144.581,
+      "n_features": 34,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "blood_pack_relative_angle",
+        "wall_dist",
+        "nearest_enemy_proj",
+        "monster_health"
+      ]
+    },
+    {
+      "step": 5,
+      "added": "ring_hit_count",
+      "score": 147.034,
+      "n_features": 35,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "blood_pack_relative_angle",
+        "wall_dist",
+        "nearest_enemy_proj",
+        "monster_health",
+        "ring_hit_count"
+      ]
+    }
+  ],
+  "final_score": 147.034,
+  "total_dims": 35
+}

@@ -1,0 +1,61 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "player_health",
+    "monster_relative_angle",
+    "monster_health"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "player_health",
+      "score": 123.163,
+      "n_features": 23,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "player_health"
+      ]
+    },
+    {
+      "step": 2,
+      "added": "monster_relative_angle",
+      "score": 134.639,
+      "n_features": 27,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "player_health",
+        "monster_relative_angle"
+      ]
+    },
+    {
+      "step": 3,
+      "added": "monster_health",
+      "score": 149.481,
+      "n_features": 31,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "player_health",
+        "monster_relative_angle",
+        "monster_health"
+      ]
+    }
+  ],
+  "final_score": 149.481,
+  "total_dims": 31
+}

@@ -1,0 +1,61 @@
+{
+  "selected_groups": [
+    "bias",
+    "monster_dist",
+    "monster_angle_sincos",
+    "blood_pack_dist",
+    "blood_pack_angle_sincos",
+    "monster_health",
+    "player_health",
+    "nearest_enemy_proj"
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "added": "monster_health",
+      "score": 31.743,
+      "n_features": 26,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "monster_health"
+      ]
+    },
+    {
+      "step": 2,
+      "added": "player_health",
+      "score": 38.741,
+      "n_features": 27,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "monster_health",
+        "player_health"
+      ]
+    },
+    {
+      "step": 3,
+      "added": "nearest_enemy_proj",
+      "score": 43.382,
+      "n_features": 31,
+      "selected_so_far": [
+        "bias",
+        "monster_dist",
+        "monster_angle_sincos",
+        "blood_pack_dist",
+        "blood_pack_angle_sincos",
+        "monster_health",
+        "player_health",
+        "nearest_enemy_proj"
+      ]
+    }
+  ],
+  "final_score": 43.382,
+  "total_dims": 31
+}
