@@ -38,9 +38,14 @@ Current groups and dimensions:
     casting_info              9D   (casting_progress, cooldown_ratio ×8 skills)
     player_health             1D   player health ratio (0-1)
     player_damage_taken       1D   player damage taken ratio (1 - health)
+    total_monster_hp          1D   sum of monster health ratios / MAX_MONSTERS
+    alive_monster_count       1D   number of alive monsters / MAX_MONSTERS
+    ready_skill_count         1D   fraction of skills fully off cooldown
+    hp_advantage              1D   player_health - total_monster_hp; positive = player winning
+    blood_pack_count          1D   number of alive blood packs, normalized by MAX_BLOOD_PACKS
     bias                      1D   constant 1.0
     -------------------------------------------------------
-    ALL GROUPS               51D   (DEFAULT_GROUP_ORDER total)
+    ALL GROUPS               56D   (DEFAULT_GROUP_ORDER total)
 """
 
 from dataclasses import dataclass
@@ -351,6 +356,66 @@ def player_damage_taken(world: GameWorld, world_size: float) -> np.ndarray:
     """
     health_ratio = world.get_player_health_percentage()
     return np.array([1.0 - health_ratio])
+
+
+@feature_group("total_monster_hp", n_dims=1)
+def total_monster_hp(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Sum of all monster health ratios, normalized by MAX_MONSTERS. 1D.
+    0.0 = all monsters dead, 1.0 = all monsters at full HP.
+    Critic use: linear predictor of distance to ALL_ENEMIES_DEAD (+300).
+    """
+    data = _get_sorted_monster_data(world, world_size)
+    total = sum(d[4] for d in data if d[0] > 0)  # d[4]=health_ratio, d[0]>0 = alive
+    return np.array([total / MAX_MONSTERS])
+
+
+@feature_group("alive_monster_count", n_dims=1)
+def alive_monster_count(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Number of alive monsters, normalized by MAX_MONSTERS. 1D.
+    Critic use: linear predictor of KILL_ENEMY rewards remaining.
+    """
+    data = _get_sorted_monster_data(world, world_size)
+    count = sum(1 for d in data if d[0] > 0)
+    return np.array([count / MAX_MONSTERS])
+
+
+@feature_group("ready_skill_count", n_dims=1)
+def ready_skill_count(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Fraction of skills fully off cooldown (ratio == 1.0). 1D.
+    0.0 = no skills ready, 1.0 = all 8 skills ready.
+    Critic use: counts immediately castable skills, unlike mean which conflates
+    "all skills half-ready" with "half of skills fully ready".
+    """
+    cooldowns = world.get_skill_cooldown_ratios()  # 8D, 1.0=ready
+    count = sum(1 for r in cooldowns if r >= 1.0)
+    return np.array([count / len(cooldowns)])
+
+
+@feature_group("hp_advantage", n_dims=1)
+def hp_advantage(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    player_health - total_monster_hp_normalized. 1D.
+    Positive = player winning, negative = monsters winning.
+    Critic use: single-value game state summary.
+    """
+    player_hp = world.get_player_health_percentage()
+    data = _get_sorted_monster_data(world, world_size)
+    monster_hp = sum(d[4] for d in data if d[0] > 0) / MAX_MONSTERS
+    return np.array([player_hp - monster_hp])
+
+
+@feature_group("blood_pack_count", n_dims=1)
+def blood_pack_count(world: GameWorld, world_size: float) -> np.ndarray:
+    """
+    Number of alive blood packs, normalized by MAX_BLOOD_PACKS. 1D.
+    0.0 = no blood packs, 1.0 = maximum blood packs present.
+    """
+    data = _get_sorted_blood_pack_data(world, world_size)
+    count = sum(1 for d in data if d[0] > 0)
+    return np.array([count / MAX_BLOOD_PACKS])
 
 
 @feature_group("bias", n_dims=1)

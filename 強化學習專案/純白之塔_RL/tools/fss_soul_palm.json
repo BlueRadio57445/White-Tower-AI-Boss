@@ -10,14 +10,17 @@
     "candidate_groups": [
         "monster_relative_angle",
         "monster_health",
-        "monster_damage_taken",
         "blood_pack_relative_angle",
         "enemy_proj_count",
         "nearest_enemy_proj",
         "wall_dist",
         "casting_info",
         "player_health",
-        "player_damage_taken"
+        "total_monster_hp",
+        "alive_monster_count",
+        "ready_skill_count",
+        "hp_advantage",
+        "blood_pack_count"
     ],
     "curriculum": "curricula/soul_palm_training.json",
     "eval_epochs": 1000,
