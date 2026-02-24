@@ -1,0 +1,5 @@
+{
+    "name": "defend_mode",
+    "description": "允許召喚血包、後退、閃現，禁止前進與攻擊技能。",
+    "allowed_actions": [0, 2, 3, 4, 8, 12]
+}

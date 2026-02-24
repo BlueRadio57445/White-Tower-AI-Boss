@@ -1,0 +1,5 @@
+{
+    "name": "attack_mode",
+    "description": "允許攻擊動作與前進，禁止向後與召喚血包。",
+    "allowed_actions": [0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+}
