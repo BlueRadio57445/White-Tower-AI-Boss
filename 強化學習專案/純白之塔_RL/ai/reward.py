@@ -7,7 +7,7 @@ Reward structure:
     HIT_WALL:          -2.0 (collision penalty)
     DAMAGE_DEALT:      +1.0 × damage (per hit)
     DAMAGE_TAKEN:      -0.01 × damage (melee) / -1.0 × damage (projectile)
-    HEAL:              +1.0 × actual_heal (blood pack collected, capped by missing HP)
+    HEAL:              min(hp_after/hp_before, 4.0) × actual_heal (blood pack collected; urgency multiplier capped at 4×)
     KILL_ENEMY:        +20.0 (per kill)
     SUMMON_BLOOD_PACK: +3.0 per pack spawned
     AGENT_DIED:        -200.0
@@ -56,11 +56,17 @@ class RewardCalculator:
             self.last_event = "HIT WALL!"
 
     def _on_item_collected(self, event: GameEvent) -> None:
-        """Handle blood pack collection (HEAL: +1.0 × actual_heal)."""
+        """Handle blood pack collection (HEAL: min(hp_now / (hp_now - actual_heal), 4.0) × actual_heal)."""
         if event.target_entity and event.target_entity.has_tag("blood_pack"):
             actual_heal = event.data.get('actual_heal', 0.0) if event.data else 0.0
             if actual_heal > 0:
-                self.accumulated_reward += 1.0 * actual_heal
+                multiplier = 1.0
+                if event.source_entity and event.source_entity.has_health():
+                    hp_now = event.source_entity.health.current
+                    hp_before = hp_now - actual_heal
+                    if hp_before > 1e-6:
+                        multiplier = min(hp_now / hp_before, 4.0)
+                self.accumulated_reward += multiplier * actual_heal
                 self.last_event = "EAT BLOOD!"
 
     def _on_skill_hit(self, event: GameEvent) -> None:
@@ -106,7 +112,7 @@ class RewardCalculator:
 
     def _on_agent_died(self, event: GameEvent) -> None:
         """Handle agent death event."""
-        self.accumulated_reward += -200.0
+        self.accumulated_reward += -400.0
         self.last_event = "AGENT DIED!"
         self._episode_done = True
         self._win = False
