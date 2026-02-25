@@ -4,11 +4,36 @@ Supports JSON (for Minecraft) and NumPy formats.
 """
 
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pathlib import Path
 import numpy as np
 
 from ai.agent import HybridPPOAgent
+
+
+# ---------------------------------------------------------------------------
+# Layout constants – human-readable labels for action indices
+# ---------------------------------------------------------------------------
+
+DISCRETE_ACTION_NAMES = [
+    "IDLE", "FORWARD", "BACKWARD", "ROTATE_LEFT", "ROTATE_RIGHT",
+    "OUTER_SLASH", "MISSILE", "HAMMER", "DASH", "SOUL_CLAW", "SOUL_PALM",
+    "BLOOD_POOL", "SUMMON_PACK",
+]
+DISCRETE_ACTION_LABELS = [
+    "等待", "前進", "後退", "左轉", "右轉",
+    "外圈刮", "飛彈", "鐵錘", "閃現", "靈魂爪", "靈魂掌", "血池", "召喚血包",
+]
+
+# One entry per aim actor (index matches w_aim_actors[i])
+AIM_ACTOR_INFO: List[Dict[str, Any]] = [
+    {"name": "aim_missile",        "skill_action": 6,  "skill_name": "MISSILE"},
+    {"name": "aim_hammer",         "skill_action": 7,  "skill_name": "HAMMER"},
+    {"name": "aim_dash_direction", "skill_action": 8,  "skill_name": "DASH"},
+    {"name": "aim_dash_facing",    "skill_action": 8,  "skill_name": "DASH"},
+    {"name": "aim_claw",           "skill_action": 9,  "skill_name": "SOUL_CLAW"},
+    {"name": "aim_palm",           "skill_action": 10, "skill_name": "SOUL_PALM"},
+]
 
 
 class WeightExporter:
@@ -17,7 +42,12 @@ class WeightExporter:
     """
 
     @staticmethod
-    def to_json(agent: HybridPPOAgent, path: str, include_metadata: bool = True) -> str:
+    def to_json(
+        agent: HybridPPOAgent,
+        path: str,
+        include_metadata: bool = True,
+        feature_extractor=None,
+    ) -> str:
         """
         Export agent weights to JSON format.
 
@@ -25,6 +55,9 @@ class WeightExporter:
             agent: The trained agent
             path: Output file path
             include_metadata: Whether to include model metadata
+            feature_extractor: Optional FeatureExtractor / SelectiveFeatureExtractor.
+                When provided, adds a human-readable ``layout`` section describing
+                which feature groups map to which weight dimensions.
 
         Returns:
             The path to the saved file
@@ -42,12 +75,13 @@ class WeightExporter:
                 'n_features': agent.n_features,
                 'n_discrete_actions': agent.n_discrete_actions,
                 'n_aim_actors': weights.get('n_aim_actors', 2)
-            }
+            },
+            'layout': WeightExporter._build_layout(agent, feature_extractor),
         }
 
         if include_metadata:
             export_data['metadata'] = {
-                'format_version': '2.0',
+                'format_version': '3.0',
                 'model_type': 'HybridPPOAgent',
                 'probability_type': 'squared',
                 'description': 'Hardware-friendly PPO with squared probability distribution',
@@ -61,6 +95,60 @@ class WeightExporter:
             json.dump(export_data, f, indent=2, ensure_ascii=False)
 
         return path
+
+    @staticmethod
+    def _build_layout(agent: HybridPPOAgent, feature_extractor=None) -> Dict[str, Any]:
+        """
+        Build a human-readable layout section describing which weight rows/columns
+        map to which actions / feature groups.
+        """
+        layout: Dict[str, Any] = {}
+
+        # ── Feature layout ─────────────────────────────────────────────────
+        # Resolve SelectiveFeatureExtractor whether passed directly or wrapped
+        # inside a FeatureExtractor (which stores it as _extractor).
+        groups = None
+        if feature_extractor is not None:
+            if hasattr(feature_extractor, 'groups'):
+                groups = feature_extractor.groups
+            elif hasattr(feature_extractor, '_extractor') and hasattr(feature_extractor._extractor, 'groups'):
+                groups = feature_extractor._extractor.groups
+
+        if groups is not None:
+            feature_layout = []
+            offset = 0
+            for g in groups:
+                feature_layout.append({
+                    "name": g.name,
+                    "dims": g.n_dims,
+                    "offset": offset,
+                    "range": f"[{offset}:{offset + g.n_dims}]",
+                })
+                offset += g.n_dims
+            layout["features"] = feature_layout
+
+        # ── Discrete action layout ─────────────────────────────────────────
+        discrete_layout = []
+        for i in range(agent.n_discrete_actions):
+            entry: Dict[str, Any] = {"index": i}
+            if i < len(DISCRETE_ACTION_NAMES):
+                entry["name"] = DISCRETE_ACTION_NAMES[i]
+            if i < len(DISCRETE_ACTION_LABELS):
+                entry["label"] = DISCRETE_ACTION_LABELS[i]
+            discrete_layout.append(entry)
+        layout["discrete_actions"] = discrete_layout
+
+        # ── Aim actor layout ───────────────────────────────────────────────
+        aim_layout = []
+        for i in range(agent.n_aim_actors):
+            if i < len(AIM_ACTOR_INFO):
+                entry = {"index": i, **AIM_ACTOR_INFO[i]}
+            else:
+                entry = {"index": i, "name": f"aim_actor_{i}"}
+            aim_layout.append(entry)
+        layout["aim_actors"] = aim_layout
+
+        return layout
 
     @staticmethod
     def to_numpy(agent: HybridPPOAgent, path: str) -> str:

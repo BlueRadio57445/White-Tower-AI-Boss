@@ -186,7 +186,11 @@ class Trainer:
 
         # Export weights if configured
         if self.config.export_weights:
-            WeightExporter.to_json(self.agent, self.config.export_path)
+            WeightExporter.to_json(
+                self.agent,
+                self.config.export_path,
+                feature_extractor=self.feature_extractor,
+            )
             print(f"\nWeights exported to: {self.config.export_path}")
 
         # Close renderer
