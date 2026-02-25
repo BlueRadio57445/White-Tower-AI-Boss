@@ -168,7 +168,7 @@ class Trainer:
                         f"\n[課程] 切換到階段: 「{current_stage.label}」"
                         f"  (epoch {current_stage.epoch_start} - {current_stage.epoch_end})"
                         f"  levels={current_stage.level_names}"
-                        f"  mask={current_stage.mask_name}"
+                        f"  masks={current_stage.mask_names}"
                     )
                     _last_stage_label = current_stage.label
 

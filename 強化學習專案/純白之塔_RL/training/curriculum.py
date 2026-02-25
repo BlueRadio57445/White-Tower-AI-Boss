@@ -4,7 +4,7 @@ Curriculum manager for staged training.
 A curriculum defines sequential training stages. Each stage specifies:
   - Epoch range (epoch_start to epoch_end, 0-indexed, inclusive)
   - A list of level file names to randomly sample from each episode
-  - An action mask restricting which skills the agent may use
+  - One or more action masks to randomly sample from each episode
 
 Curriculum JSON format:
     {
@@ -18,9 +18,20 @@ Curriculum JSON format:
                 "levels": ["01", "02", "03"],
                 "mask": "movement_only"
             },
+            {
+                "label": "技能混合",
+                "epoch_start": 500,
+                "epoch_end": 999,
+                "levels": ["04"],
+                "mask": ["missile_only", "hammer_only", "outer_slash_only"]
+            },
             ...
         ]
     }
+
+Notes on "mask":
+  - String form  "mask": "name"           → fixed mask every episode
+  - List form    "mask": ["a", "b", "c"]  → randomly pick one mask per episode
 
 Notes:
   - Epochs are 0-indexed (epoch 0 is the first training epoch).
@@ -59,8 +70,8 @@ class CurriculumStage:
     epoch_end: int
     level_names: List[str]           # File stems, for display (e.g. ["01", "02"])
     level_configs: List[LevelConfig] # Pre-loaded LevelConfig objects
-    mask_name: str                   # Mask file stem, for display
-    mask: np.ndarray                 # Pre-loaded mask array (shape: n_actions)
+    mask_names: List[str]            # Mask file stems, for display (e.g. ["missile_only"])
+    masks: List[np.ndarray]          # Pre-loaded mask arrays (one per mask_name)
 
 
 class CurriculumManager:
@@ -126,13 +137,19 @@ class CurriculumManager:
                 f"Curriculum '{self.name}': stage '{label}' has no levels."
             )
 
-        mask_name = str(raw["mask"])
+        # "mask" accepts a single name (string) or a list of names
+        raw_mask = raw["mask"]
+        mask_names = [str(raw_mask)] if isinstance(raw_mask, str) else [str(n) for n in raw_mask]
+        if not mask_names:
+            raise ValueError(
+                f"Curriculum '{self.name}': stage '{label}' has no masks."
+            )
 
         level_configs = [
             LevelLoader.from_json(str(self.levels_dir / f"{n}.json"))
             for n in level_names
         ]
-        mask = ActionMaskLoader.load_by_name(mask_name, self.masks_dir)
+        masks = [ActionMaskLoader.load_by_name(n, self.masks_dir) for n in mask_names]
 
         return CurriculumStage(
             label=label,
@@ -140,8 +157,8 @@ class CurriculumManager:
             epoch_end=epoch_end,
             level_names=level_names,
             level_configs=level_configs,
-            mask_name=mask_name,
-            mask=mask,
+            mask_names=mask_names,
+            masks=masks,
         )
 
     def _validate_no_overlap(self) -> None:
@@ -183,8 +200,8 @@ class CurriculumManager:
         return random.choice(self.get_stage(epoch).level_configs)
 
     def get_mask(self, epoch: int) -> np.ndarray:
-        """Return the action mask for the current stage."""
-        return self.get_stage(epoch).mask
+        """Randomly sample one action mask from the current stage."""
+        return random.choice(self.get_stage(epoch).masks)
 
     # ------------------------------------------------------------------
     # Display
@@ -200,6 +217,6 @@ class CurriculumManager:
             lines.append(
                 f"    [epoch {s.epoch_start:>5} - {s.epoch_end:<5}]  "
                 f"{s.label or '(unnamed)':<20}  "
-                f"levels={s.level_names}  mask={s.mask_name}"
+                f"levels={s.level_names}  masks={s.mask_names}"
             )
         return "\n".join(lines)
